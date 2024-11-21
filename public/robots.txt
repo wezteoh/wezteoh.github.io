@@ -1,0 +1,3 @@
+User-agent: *
+Disallow:
+Sitemap: https://wezteoh.github.io/sitemap.xml
