@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Posts on Some days I delve</title>
+    <link>https://wezteoh.github.io/posts/</link>
+    <description>Recent content in Posts on Some days I delve</description>
+    <image>
+      <title>Some days I delve</title>
+      <url>https://wezteoh.github.io/%3Clink%20or%20path%20of%20image%20for%20opengraph,%20twitter-cards%3E</url>
+      <link>https://wezteoh.github.io/%3Clink%20or%20path%20of%20image%20for%20opengraph,%20twitter-cards%3E</link>
+    </image>
+    <generator>Hugo -- 0.148.0</generator>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 10 Jul 2025 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://wezteoh.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>What I talk about when I talk about asyncio</title>
+      <link>https://wezteoh.github.io/posts/what-i-talk-about-when-i-talk-about-asyncio/</link>
+      <pubDate>Thu, 10 Jul 2025 00:00:00 +0000</pubDate>
+      <guid>https://wezteoh.github.io/posts/what-i-talk-about-when-i-talk-about-asyncio/</guid>
+      <description>&lt;blockquote&gt;
+&lt;p&gt;This piece captures what I’ve learned while going down the rabbit hole to understand how asyncio works in Python. While a few others had written on the subject, I think it is still valuable to contribute another angle of introduction, as learners with different backgrounds resonate better with different motivations and styles of explanation. This is one I’ve written for my one-year-younger self.&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;why-this-matters&#34;&gt;Why this matters&lt;/h2&gt;
+&lt;p&gt;As an AI researcher, I spent most of my career focused on models and data. When it came to optimizing runtime, whether for data processing or model inference, I typically relied on batching or multiprocessing. I had very little exposure to asynchronous execution, and I didn’t think I needed it. That changed when I stepped into the world of &lt;a href=&#34;https://www.beren.io/2023-04-11-Scaffolded-LLMs-natural-language-computers&#34;&gt;scaffolded LLM systems&lt;/a&gt;.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>What I talk about when I talk about asyncio | Some days I delve</title>
+<meta name="keywords" content="programming, concurrency">
+<meta name="description" content="
+This piece captures what I’ve learned while going down the rabbit hole to understand how asyncio works in Python. While a few others had written on the subject, I think it is still valuable to contribute another angle of introduction, as learners with different backgrounds resonate better with different motivations and styles of explanation. This is one I’ve written for my one-year-younger self.
+
+Why this matters
+As an AI researcher, I spent most of my career focused on models and data. When it came to optimizing runtime, whether for data processing or model inference, I typically relied on batching or multiprocessing. I had very little exposure to asynchronous execution, and I didn’t think I needed it. That changed when I stepped into the world of scaffolded LLM systems.">
+<meta name="author" content="Me">
+<link rel="canonical" href="https://wezteoh.github.io/posts/what-i-talk-about-when-i-talk-about-asyncio/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.8fe10233a706bc87f2e08b3cf97b8bd4c0a80f10675a143675d59212121037c0.css" integrity="sha256-j&#43;ECM6cGvIfy4Is8&#43;XuL1MCoDxBnWhQ2ddWSEhIQN8A=" rel="preload stylesheet" as="style">
+<link rel="icon" href="https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E">
+<link rel="icon" type="image/png" sizes="16x16" href="https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E">
+<link rel="icon" type="image/png" sizes="32x32" href="https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E">
+<link rel="apple-touch-icon" href="https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E">
+<link rel="mask-icon" href="https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="https://wezteoh.github.io/posts/what-i-talk-about-when-i-talk-about-asyncio/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-track {
+                background: 0 0;
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-thumb {
+                border-color: var(--theme);
+            }
+        }
+
+    </style>
+</noscript><meta property="og:url" content="https://wezteoh.github.io/posts/what-i-talk-about-when-i-talk-about-asyncio/">
+  <meta property="og:site_name" content="Some days I delve">
+  <meta property="og:title" content="What I talk about when I talk about asyncio">
+  <meta property="og:description" content=" This piece captures what I’ve learned while going down the rabbit hole to understand how asyncio works in Python. While a few others had written on the subject, I think it is still valuable to contribute another angle of introduction, as learners with different backgrounds resonate better with different motivations and styles of explanation. This is one I’ve written for my one-year-younger self.
+Why this matters As an AI researcher, I spent most of my career focused on models and data. When it came to optimizing runtime, whether for data processing or model inference, I typically relied on batching or multiprocessing. I had very little exposure to asynchronous execution, and I didn’t think I needed it. That changed when I stepped into the world of scaffolded LLM systems.">
+  <meta property="og:locale" content="en-us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-07-10T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-07-10T00:00:00+00:00">
+    <meta property="article:tag" content="Programming">
+    <meta property="article:tag" content="Concurrency">
+      <meta property="og:image" content="https://wezteoh.github.io/%3Clink%20or%20path%20of%20image%20for%20opengraph,%20twitter-cards%3E">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://wezteoh.github.io/%3Clink%20or%20path%20of%20image%20for%20opengraph,%20twitter-cards%3E">
+<meta name="twitter:title" content="What I talk about when I talk about asyncio">
+<meta name="twitter:description" content="
+This piece captures what I’ve learned while going down the rabbit hole to understand how asyncio works in Python. While a few others had written on the subject, I think it is still valuable to contribute another angle of introduction, as learners with different backgrounds resonate better with different motivations and styles of explanation. This is one I’ve written for my one-year-younger self.
+
+Why this matters
+As an AI researcher, I spent most of my career focused on models and data. When it came to optimizing runtime, whether for data processing or model inference, I typically relied on batching or multiprocessing. I had very little exposure to asynchronous execution, and I didn’t think I needed it. That changed when I stepped into the world of scaffolded LLM systems.">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "https://wezteoh.github.io/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "What I talk about when I talk about asyncio",
+      "item": "https://wezteoh.github.io/posts/what-i-talk-about-when-i-talk-about-asyncio/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "What I talk about when I talk about asyncio",
+  "name": "What I talk about when I talk about asyncio",
+  "description": " This piece captures what I’ve learned while going down the rabbit hole to understand how asyncio works in Python. While a few others had written on the subject, I think it is still valuable to contribute another angle of introduction, as learners with different backgrounds resonate better with different motivations and styles of explanation. This is one I’ve written for my one-year-younger self.\nWhy this matters As an AI researcher, I spent most of my career focused on models and data. When it came to optimizing runtime, whether for data processing or model inference, I typically relied on batching or multiprocessing. I had very little exposure to asynchronous execution, and I didn’t think I needed it. That changed when I stepped into the world of scaffolded LLM systems.\n",
+  "keywords": [
+    "programming", "concurrency"
+  ],
+  "articleBody": " This piece captures what I’ve learned while going down the rabbit hole to understand how asyncio works in Python. While a few others had written on the subject, I think it is still valuable to contribute another angle of introduction, as learners with different backgrounds resonate better with different motivations and styles of explanation. This is one I’ve written for my one-year-younger self.\nWhy this matters As an AI researcher, I spent most of my career focused on models and data. When it came to optimizing runtime, whether for data processing or model inference, I typically relied on batching or multiprocessing. I had very little exposure to asynchronous execution, and I didn’t think I needed it. That changed when I stepped into the world of scaffolded LLM systems.\nIn this space, optimizing performance isn’t just about speeding up a singular step. It often involves managing complex functions made up of many LLM inferences, some of these depend on each other; and many don’t. That’s when I began to appreciate the power and elegance of asynchronous programming.\nMost of us rely on external compute when calling LLM APIs. When we make a call to a model, our program typically blocks, waiting for the remote system to respond before continuing. But if you think about it, the actual computation is happening elsewhere. Your machine is just waiting, doing nothing. Couldn’t it do something useful in the meantime? That’s exactly what asynchronous execution allows. You can kick off a request, move on to non-dependent tasks, and come back to the result once it’s ready.\nIt’s a bit like playing Overcooked: while you’re waiting for the meat to cook, your hands are free. You might as well chop vegetables or get the plates ready. This is the essence of asynchronous execution. In Python, the tool that makes this pattern accessible and powerful is the asyncio library. In this post I will walk through how to write program with asyncio, how this library works and when does it make sense to use it.\nAsync way of writing your python program Applying async to flat hierarchy function calls Now let’s start with a very simple program where we make several independent LLM API calls. I will use Groq API and openai-python library to access an LLM.\n# baseline example import os import time import openai client = openai.OpenAI( base_url=\"https://api.groq.com/openai/v1\", api_key=os.environ.get(\"GROQ_API_KEY\") ) model = \"qwen/qwen3-32b\" def llm_call(prompt): response = client.chat.completions.create( model=model, messages=[{\"role\": \"user\", \"content\": prompt}], ) return response.choices[0].message.content def n_llm_calls(prompts): responses = [llm_call(prompt) for prompt in prompts] return responses if __name__ == \"__main__\": prompt = \"Explain the tactical philosophy of {coach} in 200 words.\" coaches = [\"Pep Guardiola\", \"Jurgen Klopp\", \"Carlo Ancelotti\"] prompts = [prompt.format(coach=coach) for coach in coaches] start_time = time.time() n_llm_calls(prompts) end_time = time.time() print(f\"Time taken: {end_time - start_time:.2f} seconds\") Now, we implement a version where the LLM calls are made asynchronously.\n# Async llm calls import asyncio import os import time import openai # you have to use async client or else this does not work # I will explain later what is under the hood of AsyncOpenAI module async_client = openai.AsyncOpenAI( base_url=\"https://api.groq.com/openai/v1\", api_key=os.environ.get(\"GROQ_API_KEY\") ) model = \"qwen/qwen3-32b\" async def async_llm_call(prompt): response = await async_client.chat.completions.create( model=model, messages=[{\"role\": \"user\", \"content\": prompt}], ) # async operation must be awaited return response.choices[0].message.content async def async_n_llm_calls(prompts): tasks = [asyncio.create_task(async_llm_call(prompt)) for prompt in prompts] responses = await asyncio.gather(*tasks) # the two lines above schedule the tasks to be run concurrently return responses if __name__ == \"__main__\": prompt = \"Explain the tactical philosophy of {coach} in 200 words.\" coaches = [\"Pep Guardiola\", \"Jurgen Klopp\", \"Carlo Ancelotti\"] prompts = [prompt.format(coach=coach) for coach in coaches] start_time = time.time() asyncio.run(async_n_llm_calls(prompts)) end_time = time.time() print(f\"Time taken: {end_time - start_time:.2f} seconds\") With the asyncio library, there are just four main changes to make:\nUse the async version of the client, openai.AsyncOpenAI , whereby its LLM call viachat.completions.create method is non-blocking. await the LLM call inside an async def function. Use asyncio.create_task() to schedule the independent calls concurrently, and asyncio.gather() to await them all together. Wrap them within a higher level async def function. Start the whole thing with asyncio.run(). On my machine, the async version completed in 3.19s, compared to 9.82s for the non-async version, a ~3× speedup. Why the big difference? As we are asking the autoregressive LLM for a pretty lengthy output, it takes some time to complete each request (about 3s). In the default version, the program waited for each LLM call request to be completed at the external compute and returned before firing the subsequent one, while the async version did not wait between the calls.\nNested async workflows What if your program is a lot more complex? Let say you have many LLM calls invoked at multiple levels of a hierarchical function. Some of these calls may depend on each other, while others can run independently.\nTo make the most of Python’s concurrency model using asyncio, you can follow a layered, bottom-up approach:\nStart from the lowest-level async operation you can call directly — such as async_client.chat.completions.create. Apply await expression and wrap in an async def function as shown earlier Propagate upwards: As you move up the call stack, continue wrapping higher-level logic in async def functions. Use await when calling your lower-level async functions, building an asynchronous call chain all the way to the top. At any level where there are multiple tasks that are independent given the current states and inputs, use asyncio.create_task() and asyncio.gather() to schedule them concurrently. Here we show an example of such program which we use to research the profile of a soccer team with LLM.\n### Function Hierarchy ### # get_team_profile # |- get_team_tactics # |- get_key_player_profiles # |- get_key_player_names # |- get_player_profile import asyncio import os import time import openai async_client = openai.AsyncOpenAI( base_url=\"https://api.groq.com/openai/v1\", api_key=os.environ.get(\"GROQ_API_KEY\") ) model = \"qwen/qwen3-32b\" async def async_llm_call(prompt, task_marker=None): start_time = time.time() response = await async_client.chat.completions.create( model=model, messages=[{\"role\": \"user\", \"content\": prompt}], ) # this is the operation we want to make non-blocking to others end_time = time.time() print(f\"Time taken for {task_marker}: {end_time - start_time:.2f} seconds\") return response.choices[0].message.content async def get_team_profile(team_name): team_tactics_task = asyncio.create_task(get_team_tactics(team_name)) key_player_profiles_task = asyncio.create_task(get_key_player_profiles(team_name)) team_tactics_response, key_player_profiles_response = await asyncio.gather( team_tactics_task, key_player_profiles_task ) return { \"team_tactics\": team_tactics_response, \"key_player_profiles\": key_player_profiles_response, } async def get_team_tactics(team_name): prompt = \"You are a soccer tactical analyst. In 300 words, explain the tactical style of {team_name}.\" return await async_llm_call(prompt.format(team_name=team_name), task_marker=\"team_tactics\") async def get_key_player_profiles(team_name): prompt = \"\"\"You are a soccer scount. do some brief thinking and name the 5 key players of the team {team_name}. Respond in the following format: ## format Thoughts: Players: \"\"\" response = await async_llm_call( prompt.format(team_name=team_name), task_marker=\"key_player_names\" ) key_players = response.split(\"Players: \")[1].split(\"\\n\")[0].split(\",\") player_profile_tasks = [ asyncio.create_task(get_player_profile(player)) for player in key_players ] player_profiles = await asyncio.gather(*player_profile_tasks) return {player: profile for player, profile in zip(key_players, player_profiles)} async def get_player_profile(player_name): prompt = \"You are a soccer scout. Provide the profile of the player {player_name} in 30 words.\" return await async_llm_call( prompt.format(player_name=player_name), task_marker=\"player_profile\" ) if __name__ == \"__main__\": start_time = time.time() output = asyncio.run(get_team_profile(\"Liverpool\")) end_time = time.time() print(f\"Total Time taken: {end_time - start_time:.2f} seconds\") The actual LLM call counts and dependencies are as follow:\nget_team_tactics : LLM call x 1 (independent) get_key_player_names : LLM call x 1 (independent) get_player_profile : LLM call x 5 (dependent on get_key_player_names output, but independent from one another) The output of the program:\nTime taken for key_player_names: 1.46 seconds Time taken for player_profile: 1.07 seconds Time taken for player_profile: 1.07 seconds Time taken for team_tactics: 2.93 seconds Time taken for player_profile: 1.79 seconds Time taken for player_profile: 1.79 seconds Time taken for player_profile: 2.19 seconds Total Time taken: 3.85 seconds The total time taken is roughly equal to the time taken for get_key_player_names + longest time taken for get_player_profile. The timeline of execution can be roughly thought of as depicted in this diagram below, where each bar is the timespan for the respective function call to complete:\nThe ingenious thing about asyncio is this: in terms of the way we have to write the program, it is just some syntactic sugars away from our default synchronous implementation, yet it is so powerful in optimizing the control flow. (Imagine what a mess it would be to do that with multiprocessing … more about that later).\nWhat’s happening under the hood Now let me introduce you to the key pieces of implementations that enable the behaviour described above.\nYield control with generator In reality, when using asyncio, your client machine is not executing all independent task instructions simultaneously. There is only a single thread that is running your code, instruction by instruction. What enables multiple tasks to make progress seemingly in parallel is the generator mechanism.\nMany of you are familiar with the implementation of generatorsin python. These functions are often defined with yield. A generator-function returns a generator object when called. That object implements __next__() which runs the function’s body until the next yield.\nyield = “giving control”. Whenever execution hits a yield, two things happen:\nA value is “yielded” back to the caller (e.g. to next() or to a for loop), The function’s local state is frozen at that point, so on the next invocation it resumes right after the yield. def count_up_to(n): i = 1 while i \u003c= n: yield i # ① send `i` back, pause here i += 1 # ② resume here on the next next() gen = count_up_to(3) # gen is a generator object print(next(gen)) # → 1 print(next(gen)) # → 2 print(next(gen)) # → 3 # next(gen) now raises StopIteration When the method async_client.chat.completions.create is awaited, in the lowest level, there is a generator object getting iterated. This generator is implemented such that it yields after the http request is sent (while waiting for request to be fulfilled). This is a critical point that allows the program to pause the execution there, go do other stuff, and comes back to resume the execution when data is returned.\nSo in reality, the execution timeline looks closer to this:\nBubbling up yields, bubbling down control with yield from Now that you have a sense of the “pause and resume” mechanism, I want to talk about the way asyncio library is written that allows you to propagate the await/ async def layers as shown earlier. We will begin the explanation with the generator example.\nLet’s say we want to nest a subgenerator within a generator. However, our main program can only directly touch the outer generator. Think about how we would have to write the program such that it can still step through the yielding points in subgenerator, and get its return to bubble back up to the outer generator.\ndef subsubgenerator(): yield \"subsubgenerator yield point\" return 1 def subgenerator(): a = subsubgenerator() yield \"subgenerator yield point\" return a + 1 def generator(): a = subgenerator() return a + 1 def main(): g = generator() while True: try: print(next(g)) except StopIteration as b: print(b.value) break main() The above will not work because when we call subgenerator() within the generator , it only returns you an iterator instance, which we then have call next on to step through the yields. We would have to add a block like this within the generators:\ndef generator(): # code to instantiate subgenerator, iterate and catch return value temp = subgenerator() while True: try: yield next(temp) except StopIteration as value: a = value.value break return a + 1 The introduction of yield from since python 3.3 makes things much easier. It takes care of the iterator instantiation, iteration, and return value catching under the hood. It allows you to write like below instead:\ndef subsubgenerator(): yield \"subsubgenerator yield point\" return 1 def subgenerator(): a = yield from subsubgenerator() yield \"subgenerator yield point\" return a + 1 def generator(): a = yield from subgenerator() return a + 1 def main(): g = generator() # g.throw(Exception(\"test\")) while True: try: print(next(g)) except StopIteration as b: print(b.value) break main() With that, yield from takes care of bubbling up the yield point and the return from the innermost to the outermost generator, and also the bubbling down of next() from the outermost to the inner most generator.\nHere I want to introduce 2 other operations that can be bubbled down with this construct - send and throw , the knowledge of which will come in handy later. send is a method to forward value to a generator + step the generator until its next yield:\ndef generator(): x = yield 1 # x will be assigned to the argument of mehod `send` yield \"got \" + str(x) g = generator() print(next(g)) print(g.send(2)) outputs:\n1 got 2 by nesting with yield from , you can send from the outermost to the innermost layer.\ndef subgenerator(): x = yield 1 return x def generator(): y = yield from subgenerator() yield \"got \" + str(y) g = generator() print(next(g)) print(g.send(2)) outputs:\n1 got 2 when you do g.send(None) , it is equivalent to next(g) .\nIn similar fashion, throw allows you to forward exception from the outermost to the innermost generator when they are chained by yield from .\ndef subgenerator(): try: yield 1 except Exception as e: print(\"subgenerator caught exception\") print(e) return 2 def generator(): out = yield from subgenerator() yield out g = generator() print(next(g)) g.throw(Exception(\"forwarded exception\")) outputs:\n1 subgenerator caught exception forwarded exception In short yield from mechanism enables a bidirectional delegation when we nest the generators.\nChaining awaitables Now we are ready to unpack what is within the await expression and how the propagation of await expression + async def function works.\nIn Python, you can only apply the await expression on the objects that implemented the await protocol, and they are called awaitables. The await protocol requires an object to:\nimplement the __await__() method the __await__() method must return an iterator. The yielding point which dictates the “pause and resume” breakpoint typically hides in the deepest level of the propagation chain, within an __await__() method of an awaitable that is custom defined. Most of the time as a developer, you won’t touch the custom awaitables directly. Instead you start from a higher level awaitables imported from some other library (likeasync_client.chat.completions.create() , asyncio.sleep()).\nAs shown earlier, we commonly define ****wrapping functions using the async def syntax, and we name these functions the coroutine functions. Calling such a function returns a coroutine object. Internally, this object already implemented __await__() , and as we will show you soon, it actually returns an iterator over the coroutine function body content — making the coroutine object awaitable by default.\nLet’s reexamine what is happening when we did the propagation of await expression + async def coroutine functions with the example below:\nimport asyncio import openai import os async_client = openai.AsyncOpenAI( base_url=\"https://api.groq.com/openai/v1\", api_key=os.environ.get(\"GROQ_API_KEY\") ) model = \"qwen/qwen3-32b\" async def some_coroutine_func(): response = await async_client.chat.completions.create( model=model, messages=[{\"role\": \"user\", \"content\": \"tell me a joke\"}], ) return response.choices[0].message.content async def parent_coroutine_func(): result = await some_coroutine_func() In this case, the custom awaitables are hiding within async_client.chat.completions.create which we do not touch directly. In the some_coroutine_func and parent_coroutine_func body, the code equivalent that is running under the hood is actually almost like below:\n# in some_coroutine_func _llm__it = async_client.chat.completions.create( model=model, messages=[{\"role\": \"user\", \"content\": \"tell me a joke\"}], ).__await__() response = yield from _llm__it # in parent_coroutine_func _some_coroutine_it = some_coroutine_func().__await__() result = yield from _some_coroutine_it So the __await__() methods of the coroutine objects are actually returning iterators which yield from lower level coroutine objects.\nWe are thus able to nest the awaitables with await expression + async def coroutine similar to how we nest generators with yield from as shown in the previous section. We can rest assured that the bidirectional delegation of yield/return/error is taken care of. The scheduler then controls the execution of nested awaitables by just directly interacting with the top level coroutine object with the methods of send and throw. What a brilliant design pattern at work!\nNOTE:\nAs of Python 3.13, yield from is actually not explicitly written at python code level within implementation of the await mechanism, however the underlying execution at bytecode level is actually identical. You can run the below to verify:\nimport asyncio import dis async def some_coroutine_func(): await asyncio.sleep(1) return 1 async def parent_coroutine_func(): x = await some_coroutine_func() return x def similar_parent_coroutine_func(): x = yield from some_coroutine_func() return x print(dis.dis(parent_coroutine_func)) print(\"****************\") print(dis.dis(similar_parent_coroutine_func)) Outputs in python 3.13 below. The only difference is that with the default await implementation, there is a GET_AWAITABLE operation vs GET_YIELD_FROM_ITER in the alternative implementation.\n10 RETURN_GENERATOR POP_TOP L1: RESUME 0 11 LOAD_GLOBAL 1 (some_coroutine_func + NULL) CALL 0 GET_AWAITABLE 0 LOAD_CONST 0 (None) L2: SEND 3 (to L5) L3: YIELD_VALUE 1 L4: RESUME 3 JUMP_BACKWARD_NO_INTERRUPT 5 (to L2) L5: END_SEND STORE_FAST 0 (x) 12 LOAD_FAST 0 (x) RETURN_VALUE 11 L6: CLEANUP_THROW L7: JUMP_BACKWARD_NO_INTERRUPT 6 (to L5) -- L8: CALL_INTRINSIC_1 3 (INTRINSIC_STOPITERATION_ERROR) RERAISE 1 ExceptionTable: L1 to L3 -\u003e L8 [0] lasti L3 to L4 -\u003e L6 [2] L4 to L7 -\u003e L8 [0] lasti None **************** 15 RETURN_GENERATOR POP_TOP L1: RESUME 0 16 LOAD_GLOBAL 1 (some_coroutine_func + NULL) CALL 0 GET_YIELD_FROM_ITER LOAD_CONST 0 (None) L2: SEND 3 (to L5) L3: YIELD_VALUE 1 L4: RESUME 2 JUMP_BACKWARD_NO_INTERRUPT 5 (to L2) L5: END_SEND STORE_FAST 0 (x) 17 LOAD_FAST 0 (x) RETURN_VALUE 16 L6: CLEANUP_THROW L7: JUMP_BACKWARD_NO_INTERRUPT 6 (to L5) -- L8: CALL_INTRINSIC_1 3 (INTRINSIC_STOPITERATION_ERROR) RERAISE 1 ExceptionTable: L1 to L3 -\u003e L8 [0] lasti L3 to L4 -\u003e L6 [2] L4 to L7 -\u003e L8 [0] lasti None The mastermind scheduler, task and event flag Now would be a good point to finally introduce the mastermind scheduler that coordinates all asynchronous operations - the EventLoop . It’s the central scheduler that knows which coroutines are running and which ones are paused, and when each should resume. It is called the event loop because it is indeed a forever running loop that repeats a sequence of actions in each iteration (till a stop signal). For now, we will simplify and just assume it does the following in each iteration:\nwhile True: 1. Some housekeeping on I/O readiness 2. Pop callbacks from loop._ready and run # (some callback executions may add more callbacks into loop._ready) In parallel, we introduce 2 python classes that it interacts with: Future and Task .\nA Future is a low-level event placeholder — it represents a result that’s not ready yet. It’s typically used to represent the outcome of an asynchronous operation like: an HTTP request a timeout (asyncio.sleep) a socket read/write a subprocess call A Task wraps a coroutine and is responsible for driving its execution. It runs the coroutine step-by-step and stores the result or exception once the coroutine completes. It is actually a subclass of Future although their use cases are somewhat different. Let’s walk through how an event loop operates an asynchronous operation from start to end, with a simple example here:\nimport os import asyncio import openai async_client = openai.AsyncOpenAI( base_url=\"https://api.groq.com/openai/v1\", api_key=os.environ.get(\"GROQ_API_KEY\") ) model = \"qwen/qwen3-32b\" async def some_coroutine_func(): response = await async_client.chat.completions.create( model=model, messages=[{\"role\": \"user\", \"content\": \"tell me a joke\"}], ) return response.choices[0].message.content async def parent_coroutine_func(): result = await some_coroutine_func() asyncio.run(parent_coroutine_func()) Here we spell out what is happening, step-by-step:\nWhen we call asyncio.run on this object, an event loop is set up, and it does the below to create a task to manage the coroutine object returned by parent_coroutine_func() .\ntask = asyncio.create_task(parent_coroutine_func()) When task is created, a callback to advance the task (task._step) is scheduled into loop._ready . The event loop goes through loop._ready and executed task._step. Inside task._step() , it calls the method below to advance the coroutine execution:\ndef __step_run_and_handle_result(self, exc): coro = self._coro try: if exc is None: # We use the `send` method directly, because coroutines # don't have `__iter__` and `__next__` methods. result = coro.send(None) else: result = coro.throw(exc) ... The task interacts with the top level coroutine object via send and throw to forward the stepping and error injection. The yielded value will be bubbled up to be assigned to result.\nThe coroutine starts running until it hits a yielding point. Typically somewhere deep in the nesting, it hits a point which calls await future() . The Future object’s __await__() method then yields itself:\ndef __await__(self): if not self.done(): self._asyncio_future_blocking = True yield self # This tells Task to wait for completion. if not self.done(): raise RuntimeError(\"await wasn't used with future\") return self.result() # May raise too. The task will then register a callback to the future yielded, telling the event loop what is to happen when the future is done:\nfut.add_done_callback(self._wakeup) The event loop now tracks the future which is our event flag. When the operation behind the future is complete, it is marked done via future.set_result() or future.set_exception(). (we will explain the mechanism to get informed on the operation’s completion in the next section about I/O multiplexing).\nThe update in the status of future triggers future._schedule_callbacks , which calls loop.call_soon(callback) the schedule the wakeup call into loop._ready .\nThe event loop goes through the queue again in another iteration and calls task._wakeup , which then calls task._step again to run until the next yielding point / return.\nWhen the coroutine finally hits return or completes, Python raises StopIteration(value). The task catches this and calls self.set_result(value) (because Task is a Future). Whatever’s awaiting this task receives the result.\nHere is a diagram to sum up the above:\nI/O multiplexing We now need to throw in a couple more vocabularies — socket and file descriptor.\nsocket: A software endpoint for sending or receiving data across a computer network. file descriptor: An integer handle the OS assigns to identify an open socket. I/O multiplexing is a technique that allows a program to monitor multiple file descriptors simultaneously to see which are ready for I/O.\nWe shall revisit our example on the llm call and try to clarify how I/O multiplexing happens in openai.AsyncOpenai.chat.completions.create after a request is sent. We mentioned that it will hit a yielding to yield a future object. Below is what actually happens in the event loop before the future is yielded:\nfut = self.create_future() fd = sock.fileno() self._ensure_fd_no_transport(fd) handle = self._add_reader(fd, self._sock_recv, fut, sock, n) In particular, the last line registers the FileDescriptor (FD) for EVENT_READ via a low level object called selector . The selector later performs the a low level system call of select , which is the actual platform-level system call provided by the operating system kernel that handles the I/O multiplexing. It does 2 things:\nblocks the thread until OS reports one or more FDs are ready returns a list of ready FDs When the OS reports this FD registered for EVENT_READ is readable, the event loop will trigger the method registered to the handle to receive the data:\nself._sock_recv(fut, sock, n) This method then calls future.set_result() within. Below is the block which should be inserted into the previous diagram between the points that future is yielded and task._wakeup is scheduled:\nselector.select and _process_events are the I/O housekeeping steps we referred to within each iteration of the event loop as well. The below is the actual order of execution within each iteration:\nwhile True: 1. Handle I/O: wait for sockets/fds (via selector.select) 2. Add I/O callbacks to loop._ready 3. Check for expired timers (e.g. call_later / sleep) and move them to loop._ready 4. Run all callbacks that were in loop._ready Task nesting and concurrent scheduling Now we are going to talk about the last piece of puzzle that allows 2 or more tasks to make progress concurrently with asyncio . If you remember our little example with LLM call, the actual decisive instructions written that allows parallel scheduling are the lines like below:\nasync def main_coroutine_func(): task1 = asyncio.create_task(llm_coroutine_func()) task2 = asyncio.create_task(llm_coroutine_func()) results = await asyncio.gather(task1, task2) When you run this with asyncio.run(main_coroutine_func()), here’s what happens step-by-step:\nThe event loop and a main task wrapping the main coroutine object is created. a main_task._step is scheduled to loop._ready.\nThe event loop runs main_task._step() and executes:\ntask1 = asyncio.create_task(llm_coroutine_func()) task2 = asyncio.create_task(llm_coroutine_func()) Two new child tasks are created, with task1._step() and task2._step() scheduled to loop._ready, but they have not started yet. When main_coroutine_func() reaches:\nresults = await asyncio.gather(task1, task2) asyncio.gather(...) returns a Future object that waits for both task1 and task2. The main task yields this future and is now suspended.\nThe loop then proceeds to runs task1._step() and task2._step() from loop._ready in the next iteration, until they yield Future objects tied to respective file descriptors**.**\nThe event loop, via the selector, watches for the file descriptors for task1 and task2 simultaneously. When either is ready, we go through the flagging mechanism and event loop iteration mentioned before till the task completes. The 2 tasks may advance in interleaving manner, depending on when their FDs become ready.\nAs task1 and task2 complete, the Future yielded by asyncio.gather() collects their results. Once all input tasks are done, it calls its own set_result([...]) . This triggers the scheduling of the main_task._wakeup() .\nThe main task resumes till completion.\nFollow-up readings I also recommend you to read these robustly written posts on tenthousandmeters.com and RealPython for different angles of introduction on the subject if you are interested in more details about the related python internals. They also covered a few components and features that I skipped including the loop._scheduled priority queue and asynchronous comprehension. Shoutout to the authors as their write-ups definitely enhanced my understanding on the subject.\nAsyncio vs multiprocessing When we talk about concurrency technique, another library that comes into picture is multiprocessing in python. But how is asyncio actually different from multiprocessing and when to decide which is optimal to use?\nHere I want to introduce you to the concepts of CPU bound vs I/O bound program. A program is considered CPU bound if the program will go fast when the CPU were faster, i.e. it spends the majority of time doing computations with CPU. On the other hand, a program is considered I/O bound if it would go faster when the I/O subsystem were faster. These programs could include network I/O tasks (wait for server response, stream data) where the bottleneck is external latency. (https://stackoverflow.com/questions/868568/what-do-the-terms-cpu-bound-and-i-o-bound-mean)\nasyncio relies on a single thread (single process) to process instructions sequentially. The programs that really benefit from it are the I/O bound programs, whereby the programs spend majority of time just waiting for read/write operations to complete. asyncio coordinates other tasks to proceed while some tasks are waiting for the I/O operations to complete. The parallelization that it enables is really the “wait”. If your program consist of doing 20 different long chain of computations, asyncio won’t help. The single thread has to be blocked to compute a single task at a time for each task to progress. On the other hand,multiprocessing is the library that allows you to create multiple processes (on multiple threads) to execute computations across multiple tasks in parallel.\nGiven the above, it could then seem to you that multiprocessing can also cover the cases that benefited from asyncio , i.e. we could spin up multiple processes to “wait” for I/O operations in parallel as well. However I would caution this decision has its limitations:\nIn multiprocessing each process you spin up will take up memory as it is independently managed from the other. So there are only so many processes you can spin up until you exhaust the resource. Also, if you spin up more process count than the number of CPU cores, they are not actually going to be all running in parallel. Instead the system will “switch” between the task to execute them (akin to asyncio, albeit overhead cost is much higher in multiprocessing). It is arguably harder to write multiprocessing well when you are dealing with a function made up of hierarchical operations, like the one we have earlier. You have 2 options but each comes with obvious disadvantage: First option we can try to write in similarly natural manner, nesting another process pool within a worker. As daemonic process are not allowed to have child processes, you will have to use ProcessPoolExecutor from concurrent.futures (which actually builds on top of multiprocessing but with the process marked non-demonic). Even then, it is hard to keep track of the number of processes created at each level, and they could grow exponentially in a complex function. Imagine we add more levels to the following example:\nimport multiprocessing import os from concurrent.futures import ProcessPoolExecutor def inner(x): print(f\"[Inner] PID {os.getpid()} - x={x}\") return x * x def outer(x): print(f\"[Outer] PID {os.getpid()} - x={x}\") with ProcessPoolExecutor(max_workers=10) as inner_pool: results = list(inner_pool.map(inner, [x + i for i in range(10)])) return results def main(): with ProcessPoolExecutor(max_workers=5) as outer_pool: results = list(outer_pool.map(outer, [1, 2, 3, 4, 5])) print(\"Final results:\", results) if __name__ == \"__main__\": multiprocessing.set_start_method(\"spawn\", force=True) main() Option 2. To avoid the challenge in managing number of workers created, we could attempt to create only a single process pool. You may think of passing this pool into the lower level functions for inner job to be submitted, thus still writing with a “nestable” design pattern. But since thread.lock cannot be pickled this will not work. This leaves us to have to spell out dependency from inner to outer layer, which is a hassle to write and read:\nimport multiprocessing from concurrent.futures import ProcessPoolExecutor def inner(x): return x * x def outer(results): return sum(results) def main(): num_outer_tasks = 5 inner_range = 10 # 1. Prepare inner tasks (flat list with group tracking) inner_jobs = [(i, i + j) for i in range(num_outer_tasks) for j in range(inner_range)] # 2. Grouped results placeholder grouped_inner_results = {i: [] for i in range(num_outer_tasks)} with ProcessPoolExecutor(max_workers=50) as pool: # 3. Submit all inner jobs futures = [pool.submit(inner, val) for _, val in inner_jobs] results = [f.result() for f in futures] # 4. Group inner results by outer_id (based on original job order) for (outer_id, _), result in zip(inner_jobs, results): grouped_inner_results[outer_id].append(result) # 5. Process outer results with ProcessPoolExecutor(max_workers=5) as pool: outer_futures = [pool.submit(outer, grouped_inner_results[i]) for i in range(num_outer_tasks)] outer_results = [f.result() for f in outer_futures] print(\"Final outer results:\", outer_results) if __name__ == \"__main__\": multiprocessing.set_start_method(\"spawn\", force=True) main() Turning synchronous function into async-friendly version To create a native asynchronous method, you need to custom define the low level awaitables, typically including their yielding points and callbacks for advancing the task. Most of the popular libraries typically have these implemented such that you can invoke their high level coroutines directly e.g. as defined in openai.AsyncOpenAI.\nIs there other convenient way to turn your synchronous function into async-friendly version without making low level changes? The answer is yes. There is an event loop method that allows you to submit a synchronous operation to a separate background thread via ThreadPoolExecutor . The event loop takes the result from the background thread and puts it into a special asyncio.Future, so your coroutine can await it just like any other async task.\nLet’s modify the async_llm_call in our initial example program with the following, and you shall see a somewhat similar level of speed-up compared to using the default asynchronous openai client.\ndef llm_call(prompt): response = client.chat.completions.create( model=model, messages=[{\"role\": \"user\", \"content\": prompt}], ) return response.choices[0].message.content async def async_llm_call(prompt, task_marker=None): start_time = time.time() loop = asyncio.get_running_loop() result = await loop.run_in_executor(None, llm_call, prompt) end_time = time.time() print(f\"Time taken for {task_marker}: {end_time - start_time:.2f} seconds\") return result In Python, when you do multithreading, Python bytecode is not executed in true parallel across threads. This is because of the Global Interpreter Lock (GIL), which allows only one thread to execute Python code at a time. However, multithreading still benefits I/O-bound tasks, because many blocking operations (like sleep or socket I/O) release the GIL while waiting. This allows other threads including the one running the asyncio event loop to continue executing. The operating system’s thread scheduler handles preemptive switching between these threads, enabling them to make progress in an interleaved way. So what’s the catch here? Firstly, thread is more expensive in terms of memory. There are thus only so many threads (with arg max_workers) that you can practically create. Each job submitted will occupy one thread, and if you submit more jobs than the threads, they will be queued and wait until any of the currently occupied threads is released. Besides there is also more context switching cost: when the OS switches from one thread to another, it must save the current thread’s CPU state (registers, stack pointer, etc.) and restore the next thread’s state making it less efficient than native task switching within event loop.\nNonetheless, the above method is still valuable if you are careful about the nature and quantity of submissions to the threads. At the very least It allows you to write your program in similar design pattern as if you are dealing with native asynchronous methods.\nSumming up To me, more than just a concurrency tool, asyncio is a programming paradigm because of the ease at which it allows you to structure your code. It gives you high concurrency with the readability and modularity of synchronous code, that’s the real power. I have included all the examples illustrated in this github repo. Hopefully this piece could be of some help the next time you want to optimize your scaffolded LLM system. If you notice any error or have feedback, feel free to leave a comment or reach out to me.\nCarve-out I named this post after reading a book that shifted my perspective on how I should grow in my area of interest. When I was younger, I often optimized for other people’s opinions. That mindset led me down paths away from my true passions, chasing shortcuts just to appear like a “winner”. But now I’ve come to realize that the only race that truly matters is the one against myself.\n“For me, running is both exercise and a metaphor. Running day after day, piling up the races, bit by bit I raise the bar, and by clearing each level I elevate myself. At least that’s why I’ve put in the effort day after day: to raise my own level. I’m no great runner, by any means. I’m at an ordinary – or perhaps more like mediocre – level. But that’s not the point. The point is whether or not I improved over yesterday. In long-distance running the only opponent you have to beat is yourself, the way you used to be.” ― Haruki Murakami, What I Talk About When I Talk About Running\n",
+  "wordCount" : "5725",
+  "inLanguage": "en",
+  "image": "https://wezteoh.github.io/%3Clink%20or%20path%20of%20image%20for%20opengraph,%20twitter-cards%3E","datePublished": "2025-07-10T00:00:00Z",
+  "dateModified": "2025-07-10T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "Me"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://wezteoh.github.io/posts/what-i-talk-about-when-i-talk-about-asyncio/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Some days I delve",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E"
+    }
+  }
+}
+</script>
+</head>
+
+<body class="" id="top">
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.body.classList.add('dark');
+    } else if (localStorage.getItem("pref-theme") === "light") {
+        document.body.classList.remove('dark')
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark');
+    }
+
+</script>
+
+<header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="https://wezteoh.github.io/" accesskey="h" title="Some days I delve (Alt + H)">
+                <img src="https://wezteoh.github.io/apple-touch-icon.png" alt="" aria-label="logo"
+                    height="35">Some days I delve</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="https://wezteoh.github.io/">Home</a>&nbsp;»&nbsp;<a href="https://wezteoh.github.io/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      What I talk about when I talk about asyncio
+    </h1>
+    <div class="post-meta"><span title='2025-07-10 00:00:00 +0000 UTC'>July 10, 2025</span>&nbsp;·&nbsp;27 min&nbsp;·&nbsp;5725 words&nbsp;·&nbsp;Me
+
+</div>
+  </header> <div class="toc">
+    <details  open>
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#why-this-matters">Why this matters</a></li>
+    <li><a href="#async-way-of-writing-your-python-program">Async way of writing your python program</a>
+      <ul>
+        <li><a href="#applying-async-to-flat-hierarchy-function-calls">Applying async to flat hierarchy function calls</a></li>
+        <li><a href="#nested-async-workflows">Nested async workflows</a></li>
+      </ul>
+    </li>
+    <li><a href="#whats-happening-under-the-hood">What’s happening under the hood</a>
+      <ul>
+        <li><a href="#yield-control-with-generator">Yield control with generator</a></li>
+        <li><a href="#bubbling-up-yields-bubbling-down-control-with-yield-from">Bubbling up yields, bubbling down control with <code>yield from</code></a></li>
+        <li><a href="#chaining-awaitables">Chaining awaitables</a></li>
+        <li><a href="#the-mastermind-scheduler-task-and-event-flag">The mastermind scheduler, task and event flag</a></li>
+        <li><a href="#io-multiplexing">I/O multiplexing</a></li>
+        <li><a href="#task-nesting-and-concurrent-scheduling">Task nesting and concurrent scheduling</a></li>
+        <li><a href="#follow-up-readings">Follow-up readings</a></li>
+      </ul>
+    </li>
+    <li><a href="#asyncio-vs-multiprocessing">Asyncio vs multiprocessing</a></li>
+    <li><a href="#turning-synchronous-function-into-async-friendly-version">Turning synchronous function into async-friendly version</a></li>
+    <li><a href="#summing-up">Summing up</a></li>
+    <li><a href="#carve-out">Carve-out</a></li>
+  </ul>
+</nav>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><blockquote>
+<p>This piece captures what I’ve learned while going down the rabbit hole to understand how asyncio works in Python. While a few others had written on the subject, I think it is still valuable to contribute another angle of introduction, as learners with different backgrounds resonate better with different motivations and styles of explanation. This is one I’ve written for my one-year-younger self.</p></blockquote>
+<hr>
+<h2 id="why-this-matters">Why this matters<a hidden class="anchor" aria-hidden="true" href="#why-this-matters">#</a></h2>
+<p>As an AI researcher, I spent most of my career focused on models and data. When it came to optimizing runtime, whether for data processing or model inference, I typically relied on batching or multiprocessing. I had very little exposure to asynchronous execution, and I didn’t think I needed it. That changed when I stepped into the world of <a href="https://www.beren.io/2023-04-11-Scaffolded-LLMs-natural-language-computers">scaffolded LLM systems</a>.</p>
+<p>In this space, optimizing performance isn&rsquo;t just about speeding up a singular step. It often involves managing complex functions made up of many LLM inferences, some of these depend on each other; and many don’t. That’s when I began to appreciate the power and elegance of asynchronous programming.</p>
+<p>Most of us rely on external compute when calling LLM APIs. When we make a call to a model, our program typically blocks, waiting for the remote system to respond before continuing. But if you think about it, the actual computation is happening elsewhere. Your machine is just waiting, doing nothing. Couldn’t it do something useful in the meantime? That&rsquo;s exactly what asynchronous execution allows. You can kick off a request, move on to non-dependent tasks, and come back to the result once it’s ready.</p>
+<p>It’s a bit like playing <a href="https://en.wikipedia.org/wiki/Overcooked">Overcooked</a>: while you&rsquo;re waiting for the meat to cook, your hands are free. You might as well chop vegetables or get the plates ready. This is the essence of asynchronous execution. In Python, the tool that makes this pattern accessible and powerful is the <a href="https://docs.python.org/3/library/asyncio.html"><code>asyncio</code></a> library. In this post I will walk through how to write program with asyncio, how this library works and when does it make sense to use it.</p>
+<h2 id="async-way-of-writing-your-python-program">Async way of writing your python program<a hidden class="anchor" aria-hidden="true" href="#async-way-of-writing-your-python-program">#</a></h2>
+<h3 id="applying-async-to-flat-hierarchy-function-calls">Applying async to flat hierarchy function calls<a hidden class="anchor" aria-hidden="true" href="#applying-async-to-flat-hierarchy-function-calls">#</a></h3>
+<p>Now let’s start with a very simple program where we make several independent LLM API calls. I will use <a href="https://groq.com/">Groq API</a> and <a href="https://github.com/openai/openai-python">openai-python library</a>  to access an LLM.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># baseline example</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> os
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> time
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> openai
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>client <span style="color:#f92672">=</span> openai<span style="color:#f92672">.</span>OpenAI(
+</span></span><span style="display:flex;"><span>    base_url<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;https://api.groq.com/openai/v1&#34;</span>, api_key<span style="color:#f92672">=</span>os<span style="color:#f92672">.</span>environ<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;GROQ_API_KEY&#34;</span>)
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>model <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;qwen/qwen3-32b&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">llm_call</span>(prompt):
+</span></span><span style="display:flex;"><span>    response <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>chat<span style="color:#f92672">.</span>completions<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        model<span style="color:#f92672">=</span>model,
+</span></span><span style="display:flex;"><span>        messages<span style="color:#f92672">=</span>[{<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: prompt}],
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> response<span style="color:#f92672">.</span>choices[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>message<span style="color:#f92672">.</span>content
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">n_llm_calls</span>(prompts):
+</span></span><span style="display:flex;"><span>    responses <span style="color:#f92672">=</span> [llm_call(prompt) <span style="color:#66d9ef">for</span> prompt <span style="color:#f92672">in</span> prompts]
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> responses
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> __name__ <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;__main__&#34;</span>:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    prompt <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;Explain the tactical philosophy of </span><span style="color:#e6db74">{coach}</span><span style="color:#e6db74"> in 200 words.&#34;</span>
+</span></span><span style="display:flex;"><span>    coaches <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;Pep Guardiola&#34;</span>, <span style="color:#e6db74">&#34;Jurgen Klopp&#34;</span>, <span style="color:#e6db74">&#34;Carlo Ancelotti&#34;</span>]
+</span></span><span style="display:flex;"><span>    prompts <span style="color:#f92672">=</span> [prompt<span style="color:#f92672">.</span>format(coach<span style="color:#f92672">=</span>coach) <span style="color:#66d9ef">for</span> coach <span style="color:#f92672">in</span> coaches]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    start_time <span style="color:#f92672">=</span> time<span style="color:#f92672">.</span>time()
+</span></span><span style="display:flex;"><span>    n_llm_calls(prompts)
+</span></span><span style="display:flex;"><span>    end_time <span style="color:#f92672">=</span> time<span style="color:#f92672">.</span>time()
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Time taken: </span><span style="color:#e6db74">{</span>end_time <span style="color:#f92672">-</span> start_time<span style="color:#e6db74">:</span><span style="color:#e6db74">.2f</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> seconds&#34;</span>)
+</span></span></code></pre></div><p>Now, we implement a version where the LLM calls are made asynchronously.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># Async llm calls</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> asyncio
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> os
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> time
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> openai
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># you have to use async client or else this does not work</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># I will explain later what is under the hood of AsyncOpenAI module</span>
+</span></span><span style="display:flex;"><span>async_client <span style="color:#f92672">=</span> openai<span style="color:#f92672">.</span>AsyncOpenAI(
+</span></span><span style="display:flex;"><span>    base_url<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;https://api.groq.com/openai/v1&#34;</span>, api_key<span style="color:#f92672">=</span>os<span style="color:#f92672">.</span>environ<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;GROQ_API_KEY&#34;</span>)
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>model <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;qwen/qwen3-32b&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">async_llm_call</span>(prompt):
+</span></span><span style="display:flex;"><span>    response <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> async_client<span style="color:#f92672">.</span>chat<span style="color:#f92672">.</span>completions<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        model<span style="color:#f92672">=</span>model,
+</span></span><span style="display:flex;"><span>        messages<span style="color:#f92672">=</span>[{<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: prompt}],
+</span></span><span style="display:flex;"><span>    ) <span style="color:#75715e"># async operation must be awaited</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> response<span style="color:#f92672">.</span>choices[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>message<span style="color:#f92672">.</span>content
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">async_n_llm_calls</span>(prompts): 
+</span></span><span style="display:flex;"><span>    tasks <span style="color:#f92672">=</span> [asyncio<span style="color:#f92672">.</span>create_task(async_llm_call(prompt)) <span style="color:#66d9ef">for</span> prompt <span style="color:#f92672">in</span> prompts]
+</span></span><span style="display:flex;"><span>    responses <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> asyncio<span style="color:#f92672">.</span>gather(<span style="color:#f92672">*</span>tasks)
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># the two lines above schedule the tasks to be run concurrently</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> responses
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> __name__ <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;__main__&#34;</span>:
+</span></span><span style="display:flex;"><span>    prompt <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;Explain the tactical philosophy of </span><span style="color:#e6db74">{coach}</span><span style="color:#e6db74"> in 200 words.&#34;</span>
+</span></span><span style="display:flex;"><span>    coaches <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;Pep Guardiola&#34;</span>, <span style="color:#e6db74">&#34;Jurgen Klopp&#34;</span>, <span style="color:#e6db74">&#34;Carlo Ancelotti&#34;</span>]
+</span></span><span style="display:flex;"><span>    prompts <span style="color:#f92672">=</span> [prompt<span style="color:#f92672">.</span>format(coach<span style="color:#f92672">=</span>coach) <span style="color:#66d9ef">for</span> coach <span style="color:#f92672">in</span> coaches]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    start_time <span style="color:#f92672">=</span> time<span style="color:#f92672">.</span>time()
+</span></span><span style="display:flex;"><span>    asyncio<span style="color:#f92672">.</span>run(async_n_llm_calls(prompts))
+</span></span><span style="display:flex;"><span>    end_time <span style="color:#f92672">=</span> time<span style="color:#f92672">.</span>time()
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Time taken: </span><span style="color:#e6db74">{</span>end_time <span style="color:#f92672">-</span> start_time<span style="color:#e6db74">:</span><span style="color:#e6db74">.2f</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> seconds&#34;</span>)
+</span></span></code></pre></div><p>With the <code>asyncio</code> library, there are just four main changes to make:</p>
+<ol>
+<li>Use the async version of the client, <code>openai.AsyncOpenAI</code> , whereby its LLM call via<code>chat.completions.create</code> method is  non-blocking.</li>
+<li><code>await</code> the LLM call inside an <code>async def</code> function.</li>
+<li>Use <code>asyncio.create_task()</code> to schedule the independent calls concurrently, and <code>asyncio.gather()</code> to await them all together. Wrap them within a higher level <code>async def</code> function.</li>
+<li>Start the whole thing with <code>asyncio.run()</code>.</li>
+</ol>
+<p>On my machine, the async version completed in <strong>3.19s</strong>, compared to <strong>9.82s</strong> for the non-async version, a ~3× speedup. Why the big difference? As we are asking the autoregressive LLM for a pretty lengthy output, it takes some time to complete each request (about 3s). In the default version, the program waited for each LLM call request to be completed at the external compute and returned before firing the subsequent one, while the async version did not wait between the calls.</p>
+<h3 id="nested-async-workflows">Nested async workflows<a hidden class="anchor" aria-hidden="true" href="#nested-async-workflows">#</a></h3>
+<p>What if your program is a lot more complex? Let say you have many LLM calls invoked at multiple levels of a hierarchical function. Some of these calls may depend on each other, while others can run independently.</p>
+<p>To make the most of Python’s concurrency model using asyncio, you can follow a layered, bottom-up approach:</p>
+<ol>
+<li>Start from the lowest-level async operation you can call directly — such as <code>async_client.chat.completions.create</code>. Apply await expression and wrap in an async def function as shown earlier</li>
+<li>Propagate upwards: As you move up the call stack, continue wrapping higher-level logic in <code>async def</code> functions. Use <code>await</code> when calling your lower-level async functions, building an asynchronous call chain all the way to the top.</li>
+<li>At any level where there are multiple tasks that are independent given the current states and inputs, use <code>asyncio.create_task()</code>  and <code>asyncio.gather()</code> to schedule them concurrently.</li>
+</ol>
+<p>Here we show an example of such program which we use to research the profile of a soccer team with LLM.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e">### Function Hierarchy ###</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># get_team_profile</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># |- get_team_tactics</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># |- get_key_player_profiles</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#    |- get_key_player_names</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#    |- get_player_profile</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> asyncio
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> os
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> time
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> openai
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>async_client <span style="color:#f92672">=</span> openai<span style="color:#f92672">.</span>AsyncOpenAI(
+</span></span><span style="display:flex;"><span>    base_url<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;https://api.groq.com/openai/v1&#34;</span>, api_key<span style="color:#f92672">=</span>os<span style="color:#f92672">.</span>environ<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;GROQ_API_KEY&#34;</span>)
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>model <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;qwen/qwen3-32b&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">async_llm_call</span>(prompt, task_marker<span style="color:#f92672">=</span><span style="color:#66d9ef">None</span>):
+</span></span><span style="display:flex;"><span>    start_time <span style="color:#f92672">=</span> time<span style="color:#f92672">.</span>time()
+</span></span><span style="display:flex;"><span>    response <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> async_client<span style="color:#f92672">.</span>chat<span style="color:#f92672">.</span>completions<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        model<span style="color:#f92672">=</span>model,
+</span></span><span style="display:flex;"><span>        messages<span style="color:#f92672">=</span>[{<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: prompt}],
+</span></span><span style="display:flex;"><span>    ) <span style="color:#75715e"># this is the operation we want to make non-blocking to others</span>
+</span></span><span style="display:flex;"><span>    end_time <span style="color:#f92672">=</span> time<span style="color:#f92672">.</span>time()
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Time taken for </span><span style="color:#e6db74">{</span>task_marker<span style="color:#e6db74">}</span><span style="color:#e6db74">: </span><span style="color:#e6db74">{</span>end_time <span style="color:#f92672">-</span> start_time<span style="color:#e6db74">:</span><span style="color:#e6db74">.2f</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> seconds&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> response<span style="color:#f92672">.</span>choices[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>message<span style="color:#f92672">.</span>content
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_team_profile</span>(team_name):
+</span></span><span style="display:flex;"><span>    team_tactics_task <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>create_task(get_team_tactics(team_name))
+</span></span><span style="display:flex;"><span>    key_player_profiles_task <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>create_task(get_key_player_profiles(team_name))
+</span></span><span style="display:flex;"><span>    team_tactics_response, key_player_profiles_response <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> asyncio<span style="color:#f92672">.</span>gather(
+</span></span><span style="display:flex;"><span>        team_tactics_task, key_player_profiles_task
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;team_tactics&#34;</span>: team_tactics_response,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;key_player_profiles&#34;</span>: key_player_profiles_response,
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_team_tactics</span>(team_name):
+</span></span><span style="display:flex;"><span>    prompt <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;You are a soccer tactical analyst. In 300 words, explain the tactical style of </span><span style="color:#e6db74">{team_name}</span><span style="color:#e6db74">.&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> async_llm_call(prompt<span style="color:#f92672">.</span>format(team_name<span style="color:#f92672">=</span>team_name), task_marker<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;team_tactics&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_key_player_profiles</span>(team_name):
+</span></span><span style="display:flex;"><span>    prompt <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;&#34;&#34;You are a soccer scount. do some brief thinking and name the 5 key players of the team </span><span style="color:#e6db74">{team_name}</span><span style="color:#e6db74">.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Respond in the following format:
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    ## format
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Thoughts: &lt;your thoughts here&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Players: &lt;list of players here, separated by commas&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    response <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> async_llm_call(
+</span></span><span style="display:flex;"><span>        prompt<span style="color:#f92672">.</span>format(team_name<span style="color:#f92672">=</span>team_name), task_marker<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;key_player_names&#34;</span>
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    key_players <span style="color:#f92672">=</span> response<span style="color:#f92672">.</span>split(<span style="color:#e6db74">&#34;Players: &#34;</span>)[<span style="color:#ae81ff">1</span>]<span style="color:#f92672">.</span>split(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>)[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>split(<span style="color:#e6db74">&#34;,&#34;</span>)
+</span></span><span style="display:flex;"><span>    player_profile_tasks <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>        asyncio<span style="color:#f92672">.</span>create_task(get_player_profile(player)) <span style="color:#66d9ef">for</span> player <span style="color:#f92672">in</span> key_players
+</span></span><span style="display:flex;"><span>    ]
+</span></span><span style="display:flex;"><span>    player_profiles <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> asyncio<span style="color:#f92672">.</span>gather(<span style="color:#f92672">*</span>player_profile_tasks)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {player: profile <span style="color:#66d9ef">for</span> player, profile <span style="color:#f92672">in</span> zip(key_players, player_profiles)}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_player_profile</span>(player_name):
+</span></span><span style="display:flex;"><span>    prompt <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;You are a soccer scout. Provide the profile of the player </span><span style="color:#e6db74">{player_name}</span><span style="color:#e6db74"> in 30 words.&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> async_llm_call(
+</span></span><span style="display:flex;"><span>        prompt<span style="color:#f92672">.</span>format(player_name<span style="color:#f92672">=</span>player_name), task_marker<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;player_profile&#34;</span>
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> __name__ <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;__main__&#34;</span>:
+</span></span><span style="display:flex;"><span>    start_time <span style="color:#f92672">=</span> time<span style="color:#f92672">.</span>time()
+</span></span><span style="display:flex;"><span>    output <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>run(get_team_profile(<span style="color:#e6db74">&#34;Liverpool&#34;</span>))
+</span></span><span style="display:flex;"><span>    end_time <span style="color:#f92672">=</span> time<span style="color:#f92672">.</span>time()
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Total Time taken: </span><span style="color:#e6db74">{</span>end_time <span style="color:#f92672">-</span> start_time<span style="color:#e6db74">:</span><span style="color:#e6db74">.2f</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> seconds&#34;</span>)
+</span></span></code></pre></div><p>The actual LLM call counts and dependencies are as follow:</p>
+<ul>
+<li><code>get_team_tactics</code> : LLM call x 1 (independent)</li>
+<li><code>get_key_player_names</code> : LLM call x 1 (independent)</li>
+<li><code>get_player_profile</code> : LLM call x 5 (dependent on <code>get_key_player_names</code> output, but independent from one another)</li>
+</ul>
+<p>The output of the program:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>Time taken <span style="color:#66d9ef">for</span> key_player_names: 1.46 seconds
+</span></span><span style="display:flex;"><span>Time taken <span style="color:#66d9ef">for</span> player_profile: 1.07 seconds
+</span></span><span style="display:flex;"><span>Time taken <span style="color:#66d9ef">for</span> player_profile: 1.07 seconds
+</span></span><span style="display:flex;"><span>Time taken <span style="color:#66d9ef">for</span> team_tactics: 2.93 seconds
+</span></span><span style="display:flex;"><span>Time taken <span style="color:#66d9ef">for</span> player_profile: 1.79 seconds
+</span></span><span style="display:flex;"><span>Time taken <span style="color:#66d9ef">for</span> player_profile: 1.79 seconds
+</span></span><span style="display:flex;"><span>Time taken <span style="color:#66d9ef">for</span> player_profile: 2.19 seconds
+</span></span><span style="display:flex;"><span>Total Time taken: 3.85 seconds
+</span></span></code></pre></div><p>The total time taken is roughly equal to the time taken for <code>get_key_player_names</code> + longest time taken for <code>get_player_profile</code>. The timeline of execution can be roughly thought of as depicted in this diagram below, where each bar is the timespan for the respective function call to complete:</p>
+<p><img alt="async_timeline.jpg" loading="lazy" src="/images/async_timeline.jpg"></p>
+<p>The ingenious thing about asyncio is this: in terms of the way we have to write the program, it is just some syntactic sugars away from our default synchronous implementation, yet it is so powerful in optimizing the control flow. (Imagine what a mess it would be to do that with multiprocessing … more about that later).</p>
+<h2 id="whats-happening-under-the-hood">What’s happening under the hood<a hidden class="anchor" aria-hidden="true" href="#whats-happening-under-the-hood">#</a></h2>
+<p>Now let me introduce you to the key pieces of implementations that enable the behaviour described above.</p>
+<h3 id="yield-control-with-generator">Yield control with generator<a hidden class="anchor" aria-hidden="true" href="#yield-control-with-generator">#</a></h3>
+<p>In reality, when using asyncio, your client machine is not executing all independent task instructions simultaneously. There is only a single thread that is running your code, instruction by instruction. What enables multiple tasks to make progress seemingly in parallel is the generator mechanism.</p>
+<p>Many of you are familiar with the implementation of generatorsin python. These functions are often defined with <code>yield</code>. A generator-function returns a <code>generator</code> object when called. That object implements <code>__next__()</code> which runs the function’s body until the next <code>yield</code>.</p>
+<p><code>yield</code> = “giving control”. Whenever execution hits a <code>yield</code>, two things happen:</p>
+<ul>
+<li>A value is “yielded” back to the caller (e.g. to <code>next()</code> or to a <code>for</code> loop),</li>
+<li>The function’s local state is frozen at that point, so on the next invocation it resumes right after the <code>yield</code>.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">count_up_to</span>(n):
+</span></span><span style="display:flex;"><span>    i <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> i <span style="color:#f92672">&lt;=</span> n:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">yield</span> i           <span style="color:#75715e"># ① send `i` back, pause here</span>
+</span></span><span style="display:flex;"><span>        i <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>            <span style="color:#75715e"># ② resume here on the next next()</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>gen <span style="color:#f92672">=</span> count_up_to(<span style="color:#ae81ff">3</span>)    <span style="color:#75715e"># gen is a generator object</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>print(next(gen))        <span style="color:#75715e"># → 1</span>
+</span></span><span style="display:flex;"><span>print(next(gen))        <span style="color:#75715e"># → 2</span>
+</span></span><span style="display:flex;"><span>print(next(gen))        <span style="color:#75715e"># → 3</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># next(gen) now raises StopIteration</span>
+</span></span></code></pre></div><p>When the method <code>async_client.chat.completions.create</code> is awaited, in the lowest level, there is a generator object getting iterated. This generator is implemented such that it yields after the http request is sent (while waiting for request to be fulfilled). This is a critical point that allows the program to pause the execution there, go do other stuff, and comes back to resume the execution when data is returned.</p>
+<p>So in reality, the execution timeline looks closer to this:</p>
+<p><img alt="async_timeline_actual.jpg" loading="lazy" src="/images/async_timeline_actual.jpg"></p>
+<h3 id="bubbling-up-yields-bubbling-down-control-with-yield-from">Bubbling up yields, bubbling down control with <code>yield from</code><a hidden class="anchor" aria-hidden="true" href="#bubbling-up-yields-bubbling-down-control-with-yield-from">#</a></h3>
+<p>Now that you have a sense of the “pause and resume” mechanism, I want to talk about the way asyncio library is written that allows you to propagate the <code>await</code>/ <code>async def</code> layers as shown earlier. We will begin the explanation with the generator example.</p>
+<p>Let’s say we want to nest a subgenerator within a generator. However, our main program can only directly touch the outer generator.  Think about how we would have to write the program such that it can still step through the yielding points in subgenerator, and get its return to bubble back up to the outer generator.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">subsubgenerator</span>():
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">yield</span> <span style="color:#e6db74">&#34;subsubgenerator yield point&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">subgenerator</span>():
+</span></span><span style="display:flex;"><span>		a <span style="color:#f92672">=</span> subsubgenerator()
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">yield</span> <span style="color:#e6db74">&#34;subgenerator yield point&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> a <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">generator</span>():
+</span></span><span style="display:flex;"><span>		a <span style="color:#f92672">=</span> subgenerator()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> a <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">main</span>():
+</span></span><span style="display:flex;"><span>    g <span style="color:#f92672">=</span> generator()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#66d9ef">True</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>            print(next(g))
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">StopIteration</span> <span style="color:#66d9ef">as</span> b:
+</span></span><span style="display:flex;"><span>            print(b<span style="color:#f92672">.</span>value)
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>main()
+</span></span></code></pre></div><p>The above will not work because when we call <code>subgenerator()</code> within the <code>generator</code> , it only returns you an iterator instance, which we then have call  <code>next</code> on to step through the yields. We would have to add a block like this within the generators:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">generator</span>():
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e"># code to instantiate subgenerator, iterate and catch return value</span>
+</span></span><span style="display:flex;"><span>    temp <span style="color:#f92672">=</span> subgenerator()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#66d9ef">True</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">yield</span> next(temp)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">StopIteration</span> <span style="color:#66d9ef">as</span> value:
+</span></span><span style="display:flex;"><span>            a <span style="color:#f92672">=</span> value<span style="color:#f92672">.</span>value
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> a <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>
+</span></span></code></pre></div><p>The introduction of <code>yield from</code>  since python 3.3 makes things much easier. It takes care of the iterator instantiation, iteration, and return value catching under the hood. It allows you to write like below instead:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">subsubgenerator</span>():
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">yield</span> <span style="color:#e6db74">&#34;subsubgenerator yield point&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">subgenerator</span>():
+</span></span><span style="display:flex;"><span>    a <span style="color:#f92672">=</span> <span style="color:#66d9ef">yield from</span> subsubgenerator()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">yield</span> <span style="color:#e6db74">&#34;subgenerator yield point&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> a <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">generator</span>():
+</span></span><span style="display:flex;"><span>    a <span style="color:#f92672">=</span> <span style="color:#66d9ef">yield from</span> subgenerator()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> a <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">main</span>():
+</span></span><span style="display:flex;"><span>    g <span style="color:#f92672">=</span> generator()
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># g.throw(Exception(&#34;test&#34;))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#66d9ef">True</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>            print(next(g))
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">StopIteration</span> <span style="color:#66d9ef">as</span> b:
+</span></span><span style="display:flex;"><span>            print(b<span style="color:#f92672">.</span>value)
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>main()
+</span></span></code></pre></div><p>With that,  <code>yield from</code> takes care of bubbling up the yield point and the return from the innermost to the outermost generator, and also the bubbling down of <code>next()</code> from the outermost to the inner most generator.</p>
+<p>Here I want to introduce 2 other operations that can be bubbled down with this construct - <code>send</code> and <code>throw</code> , the knowledge of which will come in handy later. <code>send</code> is a method to forward value to a generator + step the generator until its next yield:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">generator</span>():
+</span></span><span style="display:flex;"><span>    x <span style="color:#f92672">=</span> <span style="color:#66d9ef">yield</span> <span style="color:#ae81ff">1</span> <span style="color:#75715e"># x will be assigned to the argument of mehod `send`</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">yield</span> <span style="color:#e6db74">&#34;got &#34;</span> <span style="color:#f92672">+</span> str(x)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>g <span style="color:#f92672">=</span> generator()
+</span></span><span style="display:flex;"><span>print(next(g))
+</span></span><span style="display:flex;"><span>print(g<span style="color:#f92672">.</span>send(<span style="color:#ae81ff">2</span>))
+</span></span></code></pre></div><p>outputs:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>got <span style="color:#ae81ff">2</span>
+</span></span></code></pre></div><p>by nesting with <code>yield from</code> , you can <code>send</code> from the outermost to the innermost layer.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">subgenerator</span>():
+</span></span><span style="display:flex;"><span>    x <span style="color:#f92672">=</span> <span style="color:#66d9ef">yield</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> x
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">generator</span>():
+</span></span><span style="display:flex;"><span>    y <span style="color:#f92672">=</span> <span style="color:#66d9ef">yield from</span> subgenerator()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">yield</span> <span style="color:#e6db74">&#34;got &#34;</span> <span style="color:#f92672">+</span> str(y)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>g <span style="color:#f92672">=</span> generator()
+</span></span><span style="display:flex;"><span>print(next(g))
+</span></span><span style="display:flex;"><span>print(g<span style="color:#f92672">.</span>send(<span style="color:#ae81ff">2</span>))
+</span></span></code></pre></div><p>outputs:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>got <span style="color:#ae81ff">2</span>
+</span></span></code></pre></div><p>when you do <code>g.send(None)</code> , it is equivalent to <code>next(g)</code> .</p>
+<p>In similar fashion, <code>throw</code> allows you to forward exception from the outermost to the innermost generator when they are chained by <code>yield from</code> .</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">subgenerator</span>():
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">yield</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">Exception</span> <span style="color:#66d9ef">as</span> e:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;subgenerator caught exception&#34;</span>)
+</span></span><span style="display:flex;"><span>        print(e)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">generator</span>():
+</span></span><span style="display:flex;"><span>    out <span style="color:#f92672">=</span> <span style="color:#66d9ef">yield from</span> subgenerator()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">yield</span> out
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>g <span style="color:#f92672">=</span> generator()
+</span></span><span style="display:flex;"><span>print(next(g))
+</span></span><span style="display:flex;"><span>g<span style="color:#f92672">.</span>throw(<span style="color:#a6e22e">Exception</span>(<span style="color:#e6db74">&#34;forwarded exception&#34;</span>))
+</span></span></code></pre></div><p>outputs:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>subgenerator caught exception
+</span></span><span style="display:flex;"><span>forwarded exception
+</span></span></code></pre></div><p>In short <code>yield from</code> mechanism enables a bidirectional delegation when we nest the generators.</p>
+<h3 id="chaining-awaitables">Chaining awaitables<a hidden class="anchor" aria-hidden="true" href="#chaining-awaitables">#</a></h3>
+<p>Now we are ready to unpack what is within the <code>await</code> expression and how the propagation of <code>await</code> expression + <code>async def</code> function works.</p>
+<p>In Python, you can only apply the <code>await</code> expression on the objects that implemented the await protocol, and they are called awaitables. The await protocol requires an object to:</p>
+<ol>
+<li>implement the <code>__await__()</code> method</li>
+<li>the <code>__await__()</code> method must return an <strong>iterator</strong>.</li>
+</ol>
+<p>The yielding point which dictates the “pause and resume” breakpoint typically hides in the deepest level of the propagation chain, within an <code>__await__()</code> method of an awaitable that is custom defined. Most of the time as a developer, you won’t touch the custom awaitables directly. Instead you start from a higher level awaitables imported from some other library (like<code>async_client.chat.completions.create()</code> , <code>asyncio.sleep()</code>).</p>
+<p>As shown earlier, we commonly define ****wrapping functions using the <code>async def</code> syntax, and we name these functions the coroutine functions. Calling such a function returns a coroutine object. Internally, this object already implemented <code>__await__()</code> , and as we will show you soon, it actually returns an iterator over the coroutine function body content — making the coroutine object awaitable by default.</p>
+<p>Let’s reexamine what is happening when we did the propagation of <code>await</code> expression + <code>async def</code> coroutine functions with the example below:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">import</span> asyncio
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> openai
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> os
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>async_client <span style="color:#f92672">=</span> openai<span style="color:#f92672">.</span>AsyncOpenAI(
+</span></span><span style="display:flex;"><span>    base_url<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;https://api.groq.com/openai/v1&#34;</span>, api_key<span style="color:#f92672">=</span>os<span style="color:#f92672">.</span>environ<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;GROQ_API_KEY&#34;</span>)
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>model <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;qwen/qwen3-32b&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">some_coroutine_func</span>():
+</span></span><span style="display:flex;"><span>		response <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> async_client<span style="color:#f92672">.</span>chat<span style="color:#f92672">.</span>completions<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        model<span style="color:#f92672">=</span>model,
+</span></span><span style="display:flex;"><span>        messages<span style="color:#f92672">=</span>[{<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: <span style="color:#e6db74">&#34;tell me a joke&#34;</span>}],
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> response<span style="color:#f92672">.</span>choices[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>message<span style="color:#f92672">.</span>content
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">parent_coroutine_func</span>():
+</span></span><span style="display:flex;"><span>		result <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> some_coroutine_func()
+</span></span></code></pre></div><p>In this case, the custom awaitables are hiding within <code>async_client.chat.completions.create</code> which we do not touch directly. In the <code>some_coroutine_func</code> and <code>parent_coroutine_func</code> body, the code equivalent that is running under the hood is actually almost like below:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># in some_coroutine_func</span>
+</span></span><span style="display:flex;"><span>_llm__it <span style="color:#f92672">=</span> async_client<span style="color:#f92672">.</span>chat<span style="color:#f92672">.</span>completions<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>    model<span style="color:#f92672">=</span>model,
+</span></span><span style="display:flex;"><span>    messages<span style="color:#f92672">=</span>[{<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: <span style="color:#e6db74">&#34;tell me a joke&#34;</span>}],
+</span></span><span style="display:flex;"><span>)<span style="color:#f92672">.</span><span style="color:#a6e22e">__await__</span>()
+</span></span><span style="display:flex;"><span>response <span style="color:#f92672">=</span> <span style="color:#66d9ef">yield from</span> _llm__it
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># in parent_coroutine_func</span>
+</span></span><span style="display:flex;"><span>_some_coroutine_it <span style="color:#f92672">=</span> some_coroutine_func()<span style="color:#f92672">.</span><span style="color:#a6e22e">__await__</span>()  
+</span></span><span style="display:flex;"><span>result <span style="color:#f92672">=</span> <span style="color:#66d9ef">yield from</span> _some_coroutine_it
+</span></span></code></pre></div><p>So the <code>__await__()</code> methods  of the coroutine objects are actually returning iterators which <code>yield from</code>  lower level coroutine objects.</p>
+<p>We are thus able to nest the awaitables with <code>await</code>  expression + <code>async def</code> coroutine similar to how we nest generators with <code>yield from</code> as shown in the previous section. We can rest assured that the bidirectional delegation of yield/return/error is taken care of. The scheduler then controls the execution of nested awaitables by just directly interacting with the top level coroutine object with the methods of <code>send</code> and <code>throw</code>. What a brilliant design pattern at work!</p>
+<hr>
+<p><strong>NOTE:</strong></p>
+<p>As of Python 3.13, <code>yield from</code> is actually not explicitly written at python code level within implementation of the await mechanism, however the underlying execution at bytecode level is actually identical. You can run the below to verify:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">import</span> asyncio
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> dis
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">some_coroutine_func</span>():
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> asyncio<span style="color:#f92672">.</span>sleep(<span style="color:#ae81ff">1</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">parent_coroutine_func</span>():
+</span></span><span style="display:flex;"><span>    x <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> some_coroutine_func()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> x
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">similar_parent_coroutine_func</span>():
+</span></span><span style="display:flex;"><span>    x <span style="color:#f92672">=</span> <span style="color:#66d9ef">yield from</span> some_coroutine_func()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> x
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>print(dis<span style="color:#f92672">.</span>dis(parent_coroutine_func))
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">&#34;****************&#34;</span>)
+</span></span><span style="display:flex;"><span>print(dis<span style="color:#f92672">.</span>dis(similar_parent_coroutine_func))
+</span></span></code></pre></div><p>Outputs in python 3.13 below. The only difference is that with the default await implementation, there is a GET_AWAITABLE operation vs GET_YIELD_FROM_ITER in the alternative implementation.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>	<span style="color:#ae81ff">10</span>           RETURN_GENERATOR
+</span></span><span style="display:flex;"><span>               POP_TOP
+</span></span><span style="display:flex;"><span>       L1:     RESUME                   <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">11</span>           LOAD_GLOBAL              <span style="color:#ae81ff">1</span> <span style="color:#f92672">(</span>some_coroutine_func + NULL<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>               CALL                     <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>               GET_AWAITABLE            <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>               LOAD_CONST               <span style="color:#ae81ff">0</span> <span style="color:#f92672">(</span>None<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>       L2:     SEND                     <span style="color:#ae81ff">3</span> <span style="color:#f92672">(</span>to L5<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>       L3:     YIELD_VALUE              <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>       L4:     RESUME                   <span style="color:#ae81ff">3</span>
+</span></span><span style="display:flex;"><span>               JUMP_BACKWARD_NO_INTERRUPT <span style="color:#ae81ff">5</span> <span style="color:#f92672">(</span>to L2<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>       L5:     END_SEND
+</span></span><span style="display:flex;"><span>               STORE_FAST               <span style="color:#ae81ff">0</span> <span style="color:#f92672">(</span>x<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">12</span>           LOAD_FAST                <span style="color:#ae81ff">0</span> <span style="color:#f92672">(</span>x<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>               RETURN_VALUE
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">11</span>   L6:     CLEANUP_THROW
+</span></span><span style="display:flex;"><span>       L7:     JUMP_BACKWARD_NO_INTERRUPT <span style="color:#ae81ff">6</span> <span style="color:#f92672">(</span>to L5<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  --   L8:     CALL_INTRINSIC_1         <span style="color:#ae81ff">3</span> <span style="color:#f92672">(</span>INTRINSIC_STOPITERATION_ERROR<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>               RERAISE                  <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>ExceptionTable:
+</span></span><span style="display:flex;"><span>  L1 to L3 -&gt; L8 <span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> lasti
+</span></span><span style="display:flex;"><span>  L3 to L4 -&gt; L6 <span style="color:#f92672">[</span>2<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>  L4 to L7 -&gt; L8 <span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> lasti
+</span></span><span style="display:flex;"><span>None
+</span></span><span style="display:flex;"><span>****************
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">15</span>           RETURN_GENERATOR
+</span></span><span style="display:flex;"><span>               POP_TOP
+</span></span><span style="display:flex;"><span>       L1:     RESUME                   <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">16</span>           LOAD_GLOBAL              <span style="color:#ae81ff">1</span> <span style="color:#f92672">(</span>some_coroutine_func + NULL<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>               CALL                     <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>               GET_YIELD_FROM_ITER
+</span></span><span style="display:flex;"><span>               LOAD_CONST               <span style="color:#ae81ff">0</span> <span style="color:#f92672">(</span>None<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>       L2:     SEND                     <span style="color:#ae81ff">3</span> <span style="color:#f92672">(</span>to L5<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>       L3:     YIELD_VALUE              <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>       L4:     RESUME                   <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>               JUMP_BACKWARD_NO_INTERRUPT <span style="color:#ae81ff">5</span> <span style="color:#f92672">(</span>to L2<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>       L5:     END_SEND
+</span></span><span style="display:flex;"><span>               STORE_FAST               <span style="color:#ae81ff">0</span> <span style="color:#f92672">(</span>x<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">17</span>           LOAD_FAST                <span style="color:#ae81ff">0</span> <span style="color:#f92672">(</span>x<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>               RETURN_VALUE
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">16</span>   L6:     CLEANUP_THROW
+</span></span><span style="display:flex;"><span>       L7:     JUMP_BACKWARD_NO_INTERRUPT <span style="color:#ae81ff">6</span> <span style="color:#f92672">(</span>to L5<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  --   L8:     CALL_INTRINSIC_1         <span style="color:#ae81ff">3</span> <span style="color:#f92672">(</span>INTRINSIC_STOPITERATION_ERROR<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>               RERAISE                  <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>ExceptionTable:
+</span></span><span style="display:flex;"><span>  L1 to L3 -&gt; L8 <span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> lasti
+</span></span><span style="display:flex;"><span>  L3 to L4 -&gt; L6 <span style="color:#f92672">[</span>2<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>  L4 to L7 -&gt; L8 <span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> lasti
+</span></span><span style="display:flex;"><span>None
+</span></span></code></pre></div><hr>
+<h3 id="the-mastermind-scheduler-task-and-event-flag">The mastermind scheduler, task and event flag<a hidden class="anchor" aria-hidden="true" href="#the-mastermind-scheduler-task-and-event-flag">#</a></h3>
+<p>Now would be a good point to finally introduce the mastermind scheduler that coordinates all asynchronous operations - the <a href="https://docs.python.org/3/library/asyncio-eventloop.html"><code>EventLoop</code> </a> . It’s the <strong>central scheduler</strong> that knows which coroutines are running and which ones are paused, and when each should resume. It is called the event loop because it is indeed a forever running loop that repeats a sequence of actions in each iteration (till a stop signal). For now, we will simplify and just assume it does the following in each iteration:</p>
+<pre tabindex="0"><code>while True:
+		1. Some housekeeping on I/O readiness
+    2. Pop callbacks from loop._ready and run
+		# (some callback executions may add more callbacks into loop._ready)
+</code></pre><p>In parallel, we introduce 2 python classes that it interacts with: <code>Future</code> and <code>Task</code> .</p>
+<ul>
+<li>A <strong><code>Future</code></strong> is a low-level event placeholder — it represents a result that’s not ready yet. It’s typically used to represent the outcome of an asynchronous operation like:
+<ul>
+<li>an HTTP request</li>
+<li>a timeout (<code>asyncio.sleep</code>)</li>
+<li>a socket read/write</li>
+<li>a subprocess call</li>
+</ul>
+</li>
+<li>A <code>Task</code> wraps a coroutine and is responsible for driving its execution. It runs the coroutine step-by-step and stores the result or exception once the coroutine completes. It is actually a subclass of <code>Future</code> although their use cases are somewhat different.</li>
+</ul>
+<p>Let’s walk through how an event loop operates an asynchronous operation from start to end, with a simple example here:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> os
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> asyncio
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> openai
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>async_client <span style="color:#f92672">=</span> openai<span style="color:#f92672">.</span>AsyncOpenAI(
+</span></span><span style="display:flex;"><span>    base_url<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;https://api.groq.com/openai/v1&#34;</span>, api_key<span style="color:#f92672">=</span>os<span style="color:#f92672">.</span>environ<span style="color:#f92672">.</span>get(<span style="color:#e6db74">&#34;GROQ_API_KEY&#34;</span>)
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>model <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;qwen/qwen3-32b&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">some_coroutine_func</span>():
+</span></span><span style="display:flex;"><span>		response <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> async_client<span style="color:#f92672">.</span>chat<span style="color:#f92672">.</span>completions<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        model<span style="color:#f92672">=</span>model,
+</span></span><span style="display:flex;"><span>        messages<span style="color:#f92672">=</span>[{<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: <span style="color:#e6db74">&#34;tell me a joke&#34;</span>}],
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> response<span style="color:#f92672">.</span>choices[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>message<span style="color:#f92672">.</span>content
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">parent_coroutine_func</span>():
+</span></span><span style="display:flex;"><span>		result <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> some_coroutine_func()
+</span></span><span style="display:flex;"><span>		
+</span></span><span style="display:flex;"><span>asyncio<span style="color:#f92672">.</span>run(parent_coroutine_func())
+</span></span></code></pre></div><p>Here we spell out what is happening, step-by-step:</p>
+<ol>
+<li>
+<p>When we call <a href="http://asyncio.run"><code>asyncio.run</code></a> on this object, an event loop is set up, and it does the below to create a <code>task</code> to manage the coroutine object returned by <code>parent_coroutine_func()</code> .</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>task <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>create_task(parent_coroutine_func())
+</span></span></code></pre></div></li>
+<li>
+<p>When <code>task</code> is created, a callback to advance the task (<code>task._step</code>) is scheduled into <code>loop._ready</code> .  The event loop goes through <code>loop._ready</code> and executed <code>task._step</code>. Inside <code>task._step()</code> , it calls the method below to advance the coroutine execution:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">__step_run_and_handle_result</span>(self, exc):
+</span></span><span style="display:flex;"><span>    coro <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>_coro
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> exc <span style="color:#f92672">is</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># We use the `send` method directly, because coroutines</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># don&#39;t have `__iter__` and `__next__` methods.</span>
+</span></span><span style="display:flex;"><span>            result <span style="color:#f92672">=</span> coro<span style="color:#f92672">.</span>send(<span style="color:#66d9ef">None</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>            result <span style="color:#f92672">=</span> coro<span style="color:#f92672">.</span>throw(exc)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>     <span style="color:#f92672">...</span>
+</span></span></code></pre></div><p>The task  interacts with the top level coroutine object via <code>send</code> and <code>throw</code> to forward the stepping and error injection. The yielded value will be bubbled up to be assigned to result.</p>
+</li>
+<li>
+<p>The coroutine starts running until it hits a yielding point. Typically somewhere deep in the nesting, it hits a point which calls <code>await future()</code> . The <code>Future</code> object’s <code>__await__()</code> method then yields itself:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">__await__</span>(self):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> self<span style="color:#f92672">.</span>done():
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>_asyncio_future_blocking <span style="color:#f92672">=</span> <span style="color:#66d9ef">True</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">yield</span> self  <span style="color:#75715e"># This tells Task to wait for completion.</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> self<span style="color:#f92672">.</span>done():
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">RuntimeError</span>(<span style="color:#e6db74">&#34;await wasn&#39;t used with future&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> self<span style="color:#f92672">.</span>result()  <span style="color:#75715e"># May raise too. </span>
+</span></span></code></pre></div><p>The <code>task</code> will then register a callback to the <code>future</code> yielded, telling the event loop what is to happen when the <code>future</code> is done:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>fut<span style="color:#f92672">.</span>add_done_callback(self<span style="color:#f92672">.</span>_wakeup)
+</span></span></code></pre></div></li>
+<li>
+<p>The event loop now tracks the <code>future</code>  which is our event flag.  When the operation behind the <code>future</code> is complete, it is marked done via <code>future.set_result()</code> or <code>future.set_exception()</code>.  (we will explain the mechanism to get informed on the operation’s completion in the next section about I/O multiplexing).</p>
+</li>
+<li>
+<p>The update in the status of <code>future</code> triggers <code>future._schedule_callbacks</code> , which calls <code>loop.call_soon(callback)</code> the schedule the wakeup call into  <code>loop._ready</code> .</p>
+</li>
+<li>
+<p>The event loop goes through the queue again in another iteration and calls <code>task._wakeup</code> , which then calls <code>task._step</code> again to run until the next yielding point / return.</p>
+</li>
+<li>
+<p>When the coroutine finally hits <code>return</code> or completes, Python raises <code>StopIteration(value)</code>. The <code>task</code> catches this and calls <code>self.set_result(value)</code> (because <code>Task</code> is a <code>Future</code>). Whatever’s awaiting this <code>task</code> receives the result.</p>
+</li>
+</ol>
+<p>Here is a diagram to sum up the above:</p>
+<p><img alt="event_loop_flow.jpg" loading="lazy" src="/images/event_loop_flow.jpg"></p>
+<h3 id="io-multiplexing">I/O multiplexing<a hidden class="anchor" aria-hidden="true" href="#io-multiplexing">#</a></h3>
+<p>We now need to throw in a couple more vocabularies — socket and file descriptor.</p>
+<ul>
+<li>socket: A software endpoint for sending or receiving data across a computer network.</li>
+<li>file descriptor: An integer handle the OS assigns to identify an open socket.</li>
+</ul>
+<p>I/O multiplexing is a technique that allows a program to monitor multiple file descriptors simultaneously to see which are ready for I/O.</p>
+<p>We shall revisit our example on the llm call and try to clarify how I/O multiplexing happens in <code>openai.AsyncOpenai.chat.completions.create</code> after a request is sent. We mentioned that it will hit a yielding to yield a future object. Below is what actually happens in the event loop before the future is yielded:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>fut <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>create_future()
+</span></span><span style="display:flex;"><span>fd <span style="color:#f92672">=</span> sock<span style="color:#f92672">.</span>fileno()
+</span></span><span style="display:flex;"><span>self<span style="color:#f92672">.</span>_ensure_fd_no_transport(fd)
+</span></span><span style="display:flex;"><span>handle <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>_add_reader(fd, self<span style="color:#f92672">.</span>_sock_recv, fut, sock, n)
+</span></span></code></pre></div><p>In particular, the last line registers the <code>FileDescriptor</code> (FD) for <code>EVENT_READ</code> via a low level object called <code>selector</code> . The <code>selector</code> later performs the a low level system call of <code>select</code> , which is the actual platform-level system call provided by the operating system kernel that handles the I/O multiplexing. It does 2 things:</p>
+<ul>
+<li>blocks the thread until OS reports one or more FDs are ready</li>
+<li>returns a list of ready FDs</li>
+</ul>
+<p>When the OS reports this FD registered for <code>EVENT_READ</code> is <strong>readable</strong>, the event loop will trigger the method registered to the handle to receive the data:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>self<span style="color:#f92672">.</span>_sock_recv(fut, sock, n)
+</span></span></code></pre></div><p>This method then calls <code>future.set_result()</code> within. Below is the block which should be inserted into the previous diagram between the points that <code>future</code> is yielded and <code>task._wakeup</code> is scheduled:</p>
+<p><img alt="io_multiplexing.jpg" loading="lazy" src="/images/io_multiplexing.jpg"></p>
+<p><code>selector.select</code> and <code>_process_events</code> are the I/O housekeeping steps we referred to within each iteration of the event loop as well. The below is the actual order of execution within each iteration:</p>
+<pre tabindex="0"><code>while True:
+    1. Handle I/O: wait for sockets/fds (via selector.select)
+    2. Add I/O callbacks to loop._ready
+    3. Check for expired timers (e.g. call_later / sleep) and move them to loop._ready
+    4. Run all callbacks that were in loop._ready
+</code></pre><h3 id="task-nesting-and-concurrent-scheduling">Task nesting and concurrent scheduling<a hidden class="anchor" aria-hidden="true" href="#task-nesting-and-concurrent-scheduling">#</a></h3>
+<p>Now we are going to talk about the last piece of puzzle that allows 2 or more tasks to make progress concurrently with <code>asyncio</code> . If you remember our little example with LLM call, the actual decisive instructions written that allows parallel scheduling are the lines like below:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">main_coroutine_func</span>():
+</span></span><span style="display:flex;"><span>    task1 <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>create_task(llm_coroutine_func())
+</span></span><span style="display:flex;"><span>    task2 <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>create_task(llm_coroutine_func())
+</span></span><span style="display:flex;"><span>    results <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> asyncio<span style="color:#f92672">.</span>gather(task1, task2)
+</span></span></code></pre></div><p>When you run this with <code>asyncio.run(main_coroutine_func())</code>, here&rsquo;s what happens step-by-step:</p>
+<ol>
+<li>
+<p>The event loop and a main task wrapping the main coroutine object is created. a <code>main_task._step</code> is scheduled to <code>loop._ready</code>.</p>
+</li>
+<li>
+<p>The event loop runs <code>main_task._step()</code> and executes:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>task1 <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>create_task(llm_coroutine_func())
+</span></span><span style="display:flex;"><span>task2 <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>create_task(llm_coroutine_func())
+</span></span></code></pre></div><p>Two new child tasks are created, with <code>task1._step()</code> and <code>task2._step()</code> scheduled to <code>loop._ready</code>, but they have not started yet. When <code>main_coroutine_func()</code> reaches:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>results <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> asyncio<span style="color:#f92672">.</span>gather(task1, task2)
+</span></span></code></pre></div><p><code>asyncio.gather(...)</code> returns a <code>Future</code> object that waits for both <code>task1</code> and <code>task2</code>. The main task yields this future and is now suspended.</p>
+</li>
+<li>
+<p>The loop then proceeds to runs <code>task1._step()</code> and <code>task2._step()</code> from <code>loop._ready</code> in the next iteration, until they yield <code>Future</code> objects tied to respective file descriptors**.**</p>
+</li>
+<li>
+<p>The event loop, via the selector, watches for the file descriptors for <code>task1</code> and <code>task2</code> simultaneously. When either is ready, we go through the flagging mechanism and event loop iteration mentioned before till the task completes. The 2 tasks may advance in interleaving manner, depending on when their FDs become ready.</p>
+</li>
+<li>
+<p>As <code>task1</code> and <code>task2</code> complete, the <code>Future</code> yielded by <code>asyncio.gather()</code> collects their results. Once all input tasks are done, it calls its own <code>set_result([...])</code> . This triggers the scheduling of the <code>main_task._wakeup()</code> .</p>
+</li>
+<li>
+<p>The main task resumes till completion.</p>
+</li>
+</ol>
+<h3 id="follow-up-readings">Follow-up readings<a hidden class="anchor" aria-hidden="true" href="#follow-up-readings">#</a></h3>
+<p>I also recommend you to read these robustly written posts on <a href="https://tenthousandmeters.com/blog/python-behind-the-scenes-12-how-asyncawait-works-in-python/">tenthousandmeters.com</a> and <a href="https://realpython.com/async-io-python/#reader-comments">RealPython</a> for different angles of introduction on the subject if you are interested in more details about the related python internals. They also covered a few components and features that I skipped including the <code>loop._scheduled</code> priority queue and asynchronous comprehension. Shoutout to the authors as their write-ups definitely enhanced my understanding on the subject.</p>
+<h2 id="asyncio-vs-multiprocessing">Asyncio vs multiprocessing<a hidden class="anchor" aria-hidden="true" href="#asyncio-vs-multiprocessing">#</a></h2>
+<p>When we talk about concurrency technique, another library that comes into picture is <code>multiprocessing</code> in python. But how is <code>asyncio</code> actually different from <code>multiprocessing</code> and when to decide which is optimal to use?</p>
+<p>Here I want to introduce you to the concepts of CPU bound vs I/O bound program. A program is considered CPU bound if the program will go fast when the CPU were faster, i.e. it spends the majority of time doing computations with CPU. On the other hand, a program is considered I/O bound if it would go faster when the I/O subsystem were faster. These programs could include network I/O tasks (wait for server response, stream data) where the bottleneck is external latency. (<a href="https://stackoverflow.com/questions/868568/what-do-the-terms-cpu-bound-and-i-o-bound-mean">https://stackoverflow.com/questions/868568/what-do-the-terms-cpu-bound-and-i-o-bound-mean</a>)</p>
+<p><code>asyncio</code> relies on a single thread (single process) to process instructions sequentially. The programs that really benefit from it are the I/O bound programs, whereby the programs spend majority of time just waiting for read/write operations to complete. <code>asyncio</code> coordinates other tasks to proceed while some tasks are waiting for the I/O operations to complete. The parallelization that it enables is really the “wait”. If your program consist of doing 20 different long chain of computations, <code>asyncio</code> won’t help. The single thread has to be blocked to compute a single task at a time for each task to progress. On the other hand,<code>multiprocessing</code> is the library that allows you to create multiple processes (on multiple threads) to execute computations across multiple tasks in parallel.</p>
+<p>Given the above, it could then seem to you that <code>multiprocessing</code> can also cover the cases that benefited from <code>asyncio</code> , i.e. we could spin up multiple processes to “wait” for I/O operations in parallel as well. However I would caution this decision has its limitations:</p>
+<ol>
+<li>In <code>multiprocessing</code>  each process you spin up will take up memory as it is independently managed from the other. So there are only so many processes you can spin up until you exhaust the resource. Also, if you spin up more process count than the number of CPU cores, they are not actually going to be all running in parallel. Instead the system will “switch” between the task to execute them (akin to asyncio, albeit overhead cost is much higher in multiprocessing).</li>
+<li>It is arguably harder to write multiprocessing well when you are dealing with a function made up of hierarchical operations, like the one we have earlier. You have 2 options but each comes with obvious disadvantage:
+<ul>
+<li>
+<p>First option we can try to write in similarly natural manner, nesting another process pool within a worker. As daemonic process are not allowed to have child processes, you will have to use <code>ProcessPoolExecutor</code> from <code>concurrent.futures</code>  (which actually builds on top of <code>multiprocessing</code> but with the process marked non-demonic). Even then, it is hard to keep track of the number of processes created at each level, and they could grow exponentially in a complex function. Imagine we add more levels to the following example:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">import</span> multiprocessing
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> os
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> concurrent.futures <span style="color:#f92672">import</span> ProcessPoolExecutor
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">inner</span>(x):
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;[Inner] PID </span><span style="color:#e6db74">{</span>os<span style="color:#f92672">.</span>getpid()<span style="color:#e6db74">}</span><span style="color:#e6db74"> - x=</span><span style="color:#e6db74">{</span>x<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> x <span style="color:#f92672">*</span> x
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">outer</span>(x):
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;[Outer] PID </span><span style="color:#e6db74">{</span>os<span style="color:#f92672">.</span>getpid()<span style="color:#e6db74">}</span><span style="color:#e6db74"> - x=</span><span style="color:#e6db74">{</span>x<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">with</span> ProcessPoolExecutor(max_workers<span style="color:#f92672">=</span><span style="color:#ae81ff">10</span>) <span style="color:#66d9ef">as</span> inner_pool:
+</span></span><span style="display:flex;"><span>        results <span style="color:#f92672">=</span> list(inner_pool<span style="color:#f92672">.</span>map(inner, [x <span style="color:#f92672">+</span> i <span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">10</span>)]))
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> results
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">main</span>():
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">with</span> ProcessPoolExecutor(max_workers<span style="color:#f92672">=</span><span style="color:#ae81ff">5</span>) <span style="color:#66d9ef">as</span> outer_pool:
+</span></span><span style="display:flex;"><span>        results <span style="color:#f92672">=</span> list(outer_pool<span style="color:#f92672">.</span>map(outer, [<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">2</span>, <span style="color:#ae81ff">3</span>, <span style="color:#ae81ff">4</span>, <span style="color:#ae81ff">5</span>]))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;Final results:&#34;</span>, results)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> __name__ <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;__main__&#34;</span>:
+</span></span><span style="display:flex;"><span>    multiprocessing<span style="color:#f92672">.</span>set_start_method(<span style="color:#e6db74">&#34;spawn&#34;</span>, force<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>)
+</span></span><span style="display:flex;"><span>    main()
+</span></span></code></pre></div></li>
+<li>
+<p>Option 2. To avoid the challenge in managing number of workers created, we could attempt to create only a single process pool.  You may think of passing this pool into the lower level functions for inner job to be submitted, thus still writing with a “nestable” design pattern. But since <code>thread.lock</code>  cannot be pickled this will not work. This leaves us to have to spell out dependency from inner to outer layer, which is a hassle to write and read:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">import</span> multiprocessing
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> concurrent.futures <span style="color:#f92672">import</span> ProcessPoolExecutor
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">inner</span>(x):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> x <span style="color:#f92672">*</span> x
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">outer</span>(results):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> sum(results)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">main</span>():
+</span></span><span style="display:flex;"><span>    num_outer_tasks <span style="color:#f92672">=</span> <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>    inner_range <span style="color:#f92672">=</span> <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 1. Prepare inner tasks (flat list with group tracking)</span>
+</span></span><span style="display:flex;"><span>    inner_jobs <span style="color:#f92672">=</span> [(i, i <span style="color:#f92672">+</span> j) <span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(num_outer_tasks) <span style="color:#66d9ef">for</span> j <span style="color:#f92672">in</span> range(inner_range)]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 2. Grouped results placeholder</span>
+</span></span><span style="display:flex;"><span>    grouped_inner_results <span style="color:#f92672">=</span> {i: [] <span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(num_outer_tasks)}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">with</span> ProcessPoolExecutor(max_workers<span style="color:#f92672">=</span><span style="color:#ae81ff">50</span>) <span style="color:#66d9ef">as</span> pool:
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 3. Submit all inner jobs</span>
+</span></span><span style="display:flex;"><span>        futures <span style="color:#f92672">=</span> [pool<span style="color:#f92672">.</span>submit(inner, val) <span style="color:#66d9ef">for</span> _, val <span style="color:#f92672">in</span> inner_jobs]
+</span></span><span style="display:flex;"><span>        results <span style="color:#f92672">=</span> [f<span style="color:#f92672">.</span>result() <span style="color:#66d9ef">for</span> f <span style="color:#f92672">in</span> futures]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 4. Group inner results by outer_id (based on original job order)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (outer_id, _), result <span style="color:#f92672">in</span> zip(inner_jobs, results):
+</span></span><span style="display:flex;"><span>        grouped_inner_results[outer_id]<span style="color:#f92672">.</span>append(result)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 5. Process outer results</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">with</span> ProcessPoolExecutor(max_workers<span style="color:#f92672">=</span><span style="color:#ae81ff">5</span>) <span style="color:#66d9ef">as</span> pool:
+</span></span><span style="display:flex;"><span>        outer_futures <span style="color:#f92672">=</span> [pool<span style="color:#f92672">.</span>submit(outer, grouped_inner_results[i]) <span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(num_outer_tasks)]
+</span></span><span style="display:flex;"><span>        outer_results <span style="color:#f92672">=</span> [f<span style="color:#f92672">.</span>result() <span style="color:#66d9ef">for</span> f <span style="color:#f92672">in</span> outer_futures]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;Final outer results:&#34;</span>, outer_results)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> __name__ <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;__main__&#34;</span>:
+</span></span><span style="display:flex;"><span>    multiprocessing<span style="color:#f92672">.</span>set_start_method(<span style="color:#e6db74">&#34;spawn&#34;</span>, force<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>)
+</span></span><span style="display:flex;"><span>    main()
+</span></span></code></pre></div></li>
+</ul>
+</li>
+</ol>
+<h2 id="turning-synchronous-function-into-async-friendly-version">Turning synchronous function into async-friendly version<a hidden class="anchor" aria-hidden="true" href="#turning-synchronous-function-into-async-friendly-version">#</a></h2>
+<p>To create a native asynchronous method, you need to custom define the low level awaitables, typically including their yielding points and callbacks for advancing the task. Most of the popular libraries typically have these implemented such that you can invoke their high level coroutines directly e.g. as defined in <code>openai.AsyncOpenAI</code>.</p>
+<p>Is there other convenient way to turn your synchronous function into async-friendly version without making low level changes? The answer is yes. There is an event loop method that allows you to submit a synchronous operation to a separate background thread via <code>ThreadPoolExecutor</code> . The event loop takes the result from the background thread and puts it into a special <code>asyncio.Future</code>, so your coroutine can <code>await</code> it just like any other async task.</p>
+<p>Let’s modify the <code>async_llm_call</code> in our initial example program with the following, and you shall see a somewhat similar level of speed-up compared to using the default asynchronous openai client.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">llm_call</span>(prompt):
+</span></span><span style="display:flex;"><span>    response <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>chat<span style="color:#f92672">.</span>completions<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        model<span style="color:#f92672">=</span>model,
+</span></span><span style="display:flex;"><span>        messages<span style="color:#f92672">=</span>[{<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: prompt}],
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> response<span style="color:#f92672">.</span>choices[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>message<span style="color:#f92672">.</span>content
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">async_llm_call</span>(prompt, task_marker<span style="color:#f92672">=</span><span style="color:#66d9ef">None</span>):
+</span></span><span style="display:flex;"><span>    start_time <span style="color:#f92672">=</span> time<span style="color:#f92672">.</span>time()
+</span></span><span style="display:flex;"><span>    loop <span style="color:#f92672">=</span> asyncio<span style="color:#f92672">.</span>get_running_loop()
+</span></span><span style="display:flex;"><span>    result <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> loop<span style="color:#f92672">.</span>run_in_executor(<span style="color:#66d9ef">None</span>, llm_call, prompt)
+</span></span><span style="display:flex;"><span>    end_time <span style="color:#f92672">=</span> time<span style="color:#f92672">.</span>time()
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Time taken for </span><span style="color:#e6db74">{</span>task_marker<span style="color:#e6db74">}</span><span style="color:#e6db74">: </span><span style="color:#e6db74">{</span>end_time <span style="color:#f92672">-</span> start_time<span style="color:#e6db74">:</span><span style="color:#e6db74">.2f</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> seconds&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> result
+</span></span></code></pre></div><p>In Python, when you do multithreading, Python bytecode is not executed in true parallel across threads. This is because of the Global Interpreter Lock (GIL), which allows only one thread to execute Python code at a time. However, multithreading still benefits I/O-bound tasks, because many blocking operations (like sleep or socket I/O) release the GIL while waiting. This allows other threads including the one running the asyncio event loop to continue executing. The operating system’s thread scheduler handles preemptive switching between these threads, enabling them to make progress in an interleaved way.
+So what’s the catch here? Firstly, thread is more expensive in terms of memory. There are thus only so many threads (with arg max_workers) that you can practically create. Each job submitted will occupy one thread, and if you submit more jobs than the threads, they will be queued and wait until any of the currently occupied threads is released. Besides there is also more context switching cost: when the OS switches from one thread to another, it must save the current thread’s CPU state (registers, stack pointer, etc.) and restore the next thread’s state making it less efficient than native task switching within event loop.</p>
+<p>Nonetheless, the above method is still valuable if you are careful about the nature and quantity of submissions to the threads. At the very least It allows you to write your program in similar design pattern as if you are dealing with native asynchronous methods.</p>
+<h2 id="summing-up">Summing up<a hidden class="anchor" aria-hidden="true" href="#summing-up">#</a></h2>
+<p>To me, more than just a concurrency tool, <code>asyncio</code> is a programming paradigm because of the ease at which it allows you to structure your code. It gives you high concurrency with the readability and modularity of synchronous code, that’s the real power. I have included all the examples illustrated in this <a href="https://github.com/wezteoh/blog-asyncio">github repo</a>. Hopefully this piece could be of some help the next time you want to optimize your scaffolded LLM system. If you notice any error or have feedback, feel free to leave a comment or reach out to me.</p>
+<h2 id="carve-out">Carve-out<a hidden class="anchor" aria-hidden="true" href="#carve-out">#</a></h2>
+<p>I named this post after reading a book that shifted my perspective on how I should grow in my area of interest. When I was younger, I often optimized for other people’s opinions. That mindset led me down paths away from my true passions, chasing shortcuts just to appear like a “winner”. But now I’ve come to realize that the only race that truly matters is the one against myself.</p>
+<p>“For me, running is both exercise and a metaphor. Running day after day, piling up the races, bit by bit I raise the bar, and by clearing each level I elevate myself. At least that’s why I’ve put in the effort day after day: to raise my own level. I’m no great runner, by any means. I’m at an ordinary – or perhaps more like mediocre – level. But that’s not the point. The point is whether or not I improved over yesterday. In long-distance running the only opponent you have to beat is yourself, the way you used to be.” ― <strong>Haruki Murakami, <a href="https://www.goodreads.com/work/quotes/2475030">What I Talk About When I Talk About Running</a></strong></p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="https://wezteoh.github.io/tags/programming/">Programming</a></li>
+      <li><a href="https://wezteoh.github.io/tags/concurrency/">Concurrency</a></li>
+    </ul>
+
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2025 <a href="https://wezteoh.github.io/">Some days I delve</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu')
+    if (menu) {
+        menu.scrollLeft = localStorage.getItem("menu-scroll-position");
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        if (document.body.className.includes("dark")) {
+            document.body.classList.remove('dark');
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            document.body.classList.add('dark');
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>
