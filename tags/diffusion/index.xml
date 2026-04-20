@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Diffusion on Some days I delve</title>
-    <link>http://localhost:1313/tags/diffusion/</link>
+    <link>https://wezteoh.github.io/tags/diffusion/</link>
     <description>Recent content in Diffusion on Some days I delve</description>
     <image>
       <title>Some days I delve</title>
-      <url>http://localhost:1313/%3Clink%20or%20path%20of%20image%20for%20opengraph,%20twitter-cards%3E</url>
-      <link>http://localhost:1313/%3Clink%20or%20path%20of%20image%20for%20opengraph,%20twitter-cards%3E</link>
+      <url>https://wezteoh.github.io/%3Clink%20or%20path%20of%20image%20for%20opengraph,%20twitter-cards%3E</url>
+      <link>https://wezteoh.github.io/%3Clink%20or%20path%20of%20image%20for%20opengraph,%20twitter-cards%3E</link>
     </image>
     <generator>Hugo -- 0.148.0</generator>
     <language>en-us</language>
     <lastBuildDate>Mon, 20 Apr 2026 00:00:00 +0000</lastBuildDate>
-    <atom:link href="http://localhost:1313/tags/diffusion/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://wezteoh.github.io/tags/diffusion/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Understanding diffusion through VAE</title>
-      <link>http://localhost:1313/posts/understanding-diffusion-through-vae/</link>
+      <link>https://wezteoh.github.io/posts/understanding-diffusion-through-vae/</link>
       <pubDate>Mon, 20 Apr 2026 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/posts/understanding-diffusion-through-vae/</guid>
+      <guid>https://wezteoh.github.io/posts/understanding-diffusion-through-vae/</guid>
       <description>&lt;blockquote&gt;
 &lt;p&gt;This post is an introduction on diffusion written for my younger self. If you are new to diffusion and already familiar with VAE, this may be a good entry point for you.&lt;/p&gt;&lt;/blockquote&gt;
 &lt;hr&gt;
