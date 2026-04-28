@@ -11,8 +11,29 @@
     </image>
     <generator>Hugo -- 0.148.0</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 20 Apr 2026 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 28 Apr 2026 00:00:00 +0000</lastBuildDate>
     <atom:link href="https://wezteoh.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Diffusion for sketch-guided trajectory simulation</title>
+      <link>https://wezteoh.github.io/posts/diffusion-for-sketch-guided-trajectory-simulation/</link>
+      <pubDate>Tue, 28 Apr 2026 00:00:00 +0000</pubDate>
+      <guid>https://wezteoh.github.io/posts/diffusion-for-sketch-guided-trajectory-simulation/</guid>
+      <description>&lt;blockquote&gt;
+&lt;p&gt;Trajectory forecasting models aim to predict the future positions of agents given past observations. However, many real-world applications such as sports analytics require not just prediction, but controllable simulation of plausible futures under hypothetical scenarios. In this post, I investigate diffusion-based models for trajectory generation, and show how high-level “sketches” of plays can guide multi-agent dynamics. I have open sourced the code base for the &lt;a href=&#34;https://github.com/wezteoh/gameplay-trajectory-diffusion&#34;&gt;model&lt;/a&gt; and &lt;a href=&#34;https://github.com/wezteoh/gameplay-trajectory-canvas&#34;&gt;canvas app&lt;/a&gt;.&lt;/p&gt;&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;div style=&#34;display:flex; gap:1rem; flex-wrap:wrap;&#34;&gt;
+  &lt;figure style=&#34;flex:1 1 300px; margin:0;&#34;&gt;
+    &lt;img src=&#34;https://wezteoh.github.io/images/trajsketch_main.jpg&#34; style=&#34;width:100%; height:auto;&#34;&gt;
+    &lt;figcaption&gt;Sketched trajectory conditioning&lt;/figcaption&gt;
+  &lt;/figure&gt;
+  &lt;figure style=&#34;flex:1 1 300px; margin:0;&#34;&gt;
+    &lt;img src=&#34;https://wezteoh.github.io/gifs/trajectory_main.gif&#34; style=&#34;width:100%; height:auto;&#34;&gt;
+    &lt;figcaption&gt;Simulated gameplay&lt;/figcaption&gt;
+  &lt;/figure&gt;
+&lt;/div&gt;
+&lt;h2 id=&#34;1-the-idea-of-sketch-guided-trajectory-simulation&#34;&gt;1. The idea of sketch-guided trajectory simulation&lt;/h2&gt;
+&lt;p&gt;During NBA games, coaches often have to plan attacking plays to break through a defensive setup within a short period of time. They may sketch out instructions for a few players on a whiteboard, and rely on their mental model to project how both teammates and opponents might move in response. Prior work has explored data-driven approaches for this problem, using imitation learning&lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt; and GANs&lt;sup id=&#34;fnref:2&#34;&gt;&lt;a href=&#34;#fn:2&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;2&lt;/a&gt;&lt;/sup&gt; to generate sketch-conditioned gameplay simulations. In this post, I explore whether diffusion models&lt;sup id=&#34;fnref:3&#34;&gt;&lt;a href=&#34;#fn:3&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;3&lt;/a&gt;&lt;/sup&gt; &lt;sup id=&#34;fnref:4&#34;&gt;&lt;a href=&#34;#fn:4&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;4&lt;/a&gt;&lt;/sup&gt; can be used for this task as well. If you are unfamiliar with diffusion, please check out this &lt;a href=&#34;https://wezteoh.github.io/posts/understanding-diffusion-through-vae/&#34;&gt;post&lt;/a&gt;.&lt;/p&gt;</description>
+    </item>
     <item>
       <title>Understanding diffusion through VAE</title>
       <link>https://wezteoh.github.io/posts/understanding-diffusion-through-vae/</link>

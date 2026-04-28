@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
-    <title>Diffusion on Some days I delve</title>
-    <link>https://wezteoh.github.io/tags/diffusion/</link>
-    <description>Recent content in Diffusion on Some days I delve</description>
+    <title>Trajectory Simulation on Some days I delve</title>
+    <link>https://wezteoh.github.io/tags/trajectory-simulation/</link>
+    <description>Recent content in Trajectory Simulation on Some days I delve</description>
     <image>
       <title>Some days I delve</title>
       <url>https://wezteoh.github.io/%3Clink%20or%20path%20of%20image%20for%20opengraph,%20twitter-cards%3E</url>
@@ -12,7 +12,7 @@
     <generator>Hugo -- 0.148.0</generator>
     <language>en-us</language>
     <lastBuildDate>Tue, 28 Apr 2026 00:00:00 +0000</lastBuildDate>
-    <atom:link href="https://wezteoh.github.io/tags/diffusion/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://wezteoh.github.io/tags/trajectory-simulation/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Diffusion for sketch-guided trajectory simulation</title>
       <link>https://wezteoh.github.io/posts/diffusion-for-sketch-guided-trajectory-simulation/</link>
@@ -33,16 +33,6 @@
 &lt;/div&gt;
 &lt;h2 id=&#34;1-the-idea-of-sketch-guided-trajectory-simulation&#34;&gt;1. The idea of sketch-guided trajectory simulation&lt;/h2&gt;
 &lt;p&gt;During NBA games, coaches often have to plan attacking plays to break through a defensive setup within a short period of time. They may sketch out instructions for a few players on a whiteboard, and rely on their mental model to project how both teammates and opponents might move in response. Prior work has explored data-driven approaches for this problem, using imitation learning&lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt; and GANs&lt;sup id=&#34;fnref:2&#34;&gt;&lt;a href=&#34;#fn:2&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;2&lt;/a&gt;&lt;/sup&gt; to generate sketch-conditioned gameplay simulations. In this post, I explore whether diffusion models&lt;sup id=&#34;fnref:3&#34;&gt;&lt;a href=&#34;#fn:3&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;3&lt;/a&gt;&lt;/sup&gt; &lt;sup id=&#34;fnref:4&#34;&gt;&lt;a href=&#34;#fn:4&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;4&lt;/a&gt;&lt;/sup&gt; can be used for this task as well. If you are unfamiliar with diffusion, please check out this &lt;a href=&#34;https://wezteoh.github.io/posts/understanding-diffusion-through-vae/&#34;&gt;post&lt;/a&gt;.&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title>Understanding diffusion through VAE</title>
-      <link>https://wezteoh.github.io/posts/understanding-diffusion-through-vae/</link>
-      <pubDate>Mon, 20 Apr 2026 00:00:00 +0000</pubDate>
-      <guid>https://wezteoh.github.io/posts/understanding-diffusion-through-vae/</guid>
-      <description>&lt;blockquote&gt;
-&lt;p&gt;This post is an introduction on diffusion written for my younger self. If you are new to diffusion and already familiar with VAE, this may be a good entry point for you.&lt;/p&gt;&lt;/blockquote&gt;
-&lt;hr&gt;
-&lt;p&gt;Diffusion has blown up over the past few years, with a huge amount of literature produced, but many differ in how they frame this modeling paradigm&lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;. I do not intend to approach this via the most standardized or unified theory. I am not the best person to do that, nor do I think that angle helped me the most when approaching the subject (see my previous &lt;a href=&#34;https://wezteoh.github.io/posts/ranting-about-the-engineering-science-of-ml/&#34;&gt;post&lt;/a&gt;). While many explanations derive diffusion from first principles, I found it useful to start by understanding how the objective is shaped into something we can actually train.&lt;/p&gt;</description>
     </item>
   </channel>
 </rss>

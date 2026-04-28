@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>Diffusion for sketch-guided trajectory simulation | Some days I delve</title>
+<meta name="keywords" content="diffusion, trajectory simulation, sports analytics, controllable generation">
+<meta name="description" content="
+Trajectory forecasting models aim to predict the future positions of agents given past observations. However, many real-world applications such as sports analytics require not just prediction, but controllable simulation of plausible futures under hypothetical scenarios. In this post, I investigate diffusion-based models for trajectory generation, and show how high-level “sketches” of plays can guide multi-agent dynamics. I have open sourced the code base for the model and canvas app.
+
+
+  
+    
+    Sketched trajectory conditioning
+  
+  
+    
+    Simulated gameplay
+  
+
+1. The idea of sketch-guided trajectory simulation
+During NBA games, coaches often have to plan attacking plays to break through a defensive setup within a short period of time. They may sketch out instructions for a few players on a whiteboard, and rely on their mental model to project how both teammates and opponents might move in response. Prior work has explored data-driven approaches for this problem, using imitation learning1 and GANs2 to generate sketch-conditioned gameplay simulations. In this post, I explore whether diffusion models3 4 can be used for this task as well. If you are unfamiliar with diffusion, please check out this post.">
+<meta name="author" content="">
+<link rel="canonical" href="https://wezteoh.github.io/posts/diffusion-for-sketch-guided-trajectory-simulation/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.5b65e7932c72292e151990f75ddc3924e1245956b0e1846e880ddc2968a63910.css" integrity="sha256-W2XnkyxyKS4VGZD3Xdw5JOEkWVaw4YRuiA3cKWimORA=" rel="preload stylesheet" as="style">
+<link rel="icon" href="https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E">
+<link rel="icon" type="image/png" sizes="16x16" href="https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E">
+<link rel="icon" type="image/png" sizes="32x32" href="https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E">
+<link rel="apple-touch-icon" href="https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E">
+<link rel="mask-icon" href="https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="https://wezteoh.github.io/posts/diffusion-for-sketch-guided-trajectory-simulation/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-track {
+                background: 0 0;
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-thumb {
+                border-color: var(--theme);
+            }
+        }
+
+    </style>
+</noscript>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.7/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.7/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.7/dist/contrib/auto-render.min.js" crossorigin="anonymous"
+    onload="renderMathInElement(document.body);"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        renderMathInElement(document.body, {
+            delimiters: [
+                { left: "$$", right: "$$", display: true },
+                { left: "$", right: "$", display: false }
+            ]
+        });
+    });
+</script>
+<meta property="og:url" content="https://wezteoh.github.io/posts/diffusion-for-sketch-guided-trajectory-simulation/">
+  <meta property="og:site_name" content="Some days I delve">
+  <meta property="og:title" content="Diffusion for sketch-guided trajectory simulation">
+  <meta property="og:description" content=" Trajectory forecasting models aim to predict the future positions of agents given past observations. However, many real-world applications such as sports analytics require not just prediction, but controllable simulation of plausible futures under hypothetical scenarios. In this post, I investigate diffusion-based models for trajectory generation, and show how high-level “sketches” of plays can guide multi-agent dynamics. I have open sourced the code base for the model and canvas app.
+Sketched trajectory conditioning Simulated gameplay 1. The idea of sketch-guided trajectory simulation During NBA games, coaches often have to plan attacking plays to break through a defensive setup within a short period of time. They may sketch out instructions for a few players on a whiteboard, and rely on their mental model to project how both teammates and opponents might move in response. Prior work has explored data-driven approaches for this problem, using imitation learning1 and GANs2 to generate sketch-conditioned gameplay simulations. In this post, I explore whether diffusion models3 4 can be used for this task as well. If you are unfamiliar with diffusion, please check out this post.">
+  <meta property="og:locale" content="en-us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2026-04-28T00:00:00+00:00">
+    <meta property="article:modified_time" content="2026-04-28T00:00:00+00:00">
+    <meta property="article:tag" content="Diffusion">
+    <meta property="article:tag" content="Trajectory Simulation">
+    <meta property="article:tag" content="Sports Analytics">
+    <meta property="article:tag" content="Controllable Generation">
+      <meta property="og:image" content="https://wezteoh.github.io/images/trajsketch_main.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://wezteoh.github.io/images/trajsketch_main.jpg">
+<meta name="twitter:title" content="Diffusion for sketch-guided trajectory simulation">
+<meta name="twitter:description" content="
+Trajectory forecasting models aim to predict the future positions of agents given past observations. However, many real-world applications such as sports analytics require not just prediction, but controllable simulation of plausible futures under hypothetical scenarios. In this post, I investigate diffusion-based models for trajectory generation, and show how high-level “sketches” of plays can guide multi-agent dynamics. I have open sourced the code base for the model and canvas app.
+
+
+  
+    
+    Sketched trajectory conditioning
+  
+  
+    
+    Simulated gameplay
+  
+
+1. The idea of sketch-guided trajectory simulation
+During NBA games, coaches often have to plan attacking plays to break through a defensive setup within a short period of time. They may sketch out instructions for a few players on a whiteboard, and rely on their mental model to project how both teammates and opponents might move in response. Prior work has explored data-driven approaches for this problem, using imitation learning1 and GANs2 to generate sketch-conditioned gameplay simulations. In this post, I explore whether diffusion models3 4 can be used for this task as well. If you are unfamiliar with diffusion, please check out this post.">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "https://wezteoh.github.io/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "Diffusion for sketch-guided trajectory simulation",
+      "item": "https://wezteoh.github.io/posts/diffusion-for-sketch-guided-trajectory-simulation/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Diffusion for sketch-guided trajectory simulation",
+  "name": "Diffusion for sketch-guided trajectory simulation",
+  "description": " Trajectory forecasting models aim to predict the future positions of agents given past observations. However, many real-world applications such as sports analytics require not just prediction, but controllable simulation of plausible futures under hypothetical scenarios. In this post, I investigate diffusion-based models for trajectory generation, and show how high-level “sketches” of plays can guide multi-agent dynamics. I have open sourced the code base for the model and canvas app.\nSketched trajectory conditioning Simulated gameplay 1. The idea of sketch-guided trajectory simulation During NBA games, coaches often have to plan attacking plays to break through a defensive setup within a short period of time. They may sketch out instructions for a few players on a whiteboard, and rely on their mental model to project how both teammates and opponents might move in response. Prior work has explored data-driven approaches for this problem, using imitation learning1 and GANs2 to generate sketch-conditioned gameplay simulations. In this post, I explore whether diffusion models3 4 can be used for this task as well. If you are unfamiliar with diffusion, please check out this post.\n",
+  "keywords": [
+    "diffusion", "trajectory simulation", "sports analytics", "controllable generation"
+  ],
+  "articleBody": " Trajectory forecasting models aim to predict the future positions of agents given past observations. However, many real-world applications such as sports analytics require not just prediction, but controllable simulation of plausible futures under hypothetical scenarios. In this post, I investigate diffusion-based models for trajectory generation, and show how high-level “sketches” of plays can guide multi-agent dynamics. I have open sourced the code base for the model and canvas app.\nSketched trajectory conditioning Simulated gameplay 1. The idea of sketch-guided trajectory simulation During NBA games, coaches often have to plan attacking plays to break through a defensive setup within a short period of time. They may sketch out instructions for a few players on a whiteboard, and rely on their mental model to project how both teammates and opponents might move in response. Prior work has explored data-driven approaches for this problem, using imitation learning1 and GANs2 to generate sketch-conditioned gameplay simulations. In this post, I explore whether diffusion models3 4 can be used for this task as well. If you are unfamiliar with diffusion, please check out this post.\n2. Why diffusion for this task Previously, I got good results modeling trajectory prediction with an autoregressive setup5. One intuition I had was that autoregressive models effectively get more compute capacity per sample compared to most parallel prediction models of similar size, as each step requires a new forward pass and reuses the full model capacity. In practice, this often leads to more coherent trajectories.\nDiffusion models share a similar property. Instead of generating trajectories in a single pass, they can iteratively refine a noisy sample over multiple forward passes, repeatedly applying their full capacity in the process.\nProgressive denoising of a sampled gameplay from my model. The overall structure of the play (spacing and movement direction) emerges earlier, with later steps refining finer details.\nI later came across interpretations of diffusion as a form of autoregression in the frequency domain6, which further supports this connection. This planted the idea in my head that diffusion models could be a viable alternative for trajectory simulation. The key difference is that diffusion models operate on the full trajectory jointly at every refinement step, allowing them to repeatedly adjust the entire trajectory in a globally consistent way. In contrast, autoregressive models, even with access to global context, are structured around a sequential generation process. This makes it less natural to use that context for satisfying global or future constraints.\nOne simple example is when we want to guide only part of a play at a few future time points. In the diffusion setup, this can be expressed directly as partial conditioning at those time points, even if intermediate frames are missing. The model then refines the full trajectory to approximately satisfy these constraints. In contrast, autoregressive models commit to predictions step-by-step and tend to prioritize local consistency. This makes it harder to guide the sample trajectory towards matching a future endpoint, without modifying the generation process.\n3. Model setup Instead of generating absolute positions, I decide to make the model generate frame-to-frame position deltas for each agent. This keeps the target distribution more uniform in scale and makes the learning problem easier, especially for longer trajectories. The model operates on tensors of shape: [batch, seq_len, num_agents, coord_dim].\nModel backbone\nThe overall architecture is inspired by DiT7, but adapted for sequential multi-agent data rather than images. The key design choice is to factorize attention across time and agents, rather than applying joint attention over all dimensions. Concretely, we alternate between two types of transformer layers:\nTemporal attention layers, which attend over the temporal dimension independently for each agent Agent attention layers, which attend over all agents at each fixed timestep This factorization allows the model to separately capture temporal dynamics (how trajectories evolve) and inter-agent interactions (coordination, collision avoidance), without paying the full cost of joint attention over all dimensions. Conceptually, this is similar to spatiotemporal factorization used in video models (e.g. within Genie8), where attention is separated along spatial and temporal axes.\nSpatiotemporal module used in the Genie model, with interleaved spatial and temporal attention layers. Each color represents a single self attention map: spatial layer attends all spatial locations over the image at one timepoint, temporal layer attends one spatial location over time. (Image source: Bruce, J., et al. 2024).\nIn our setup, we make a small adaptation from the original DiT design by creating patches along the time dimension for each agent, reflecting the sequential nature of the data.\nApplying conditioning\nFor conditioning, we provide trajectories and its stepwise deltas (with observed + mask-filled portions) and a binary mask of the same shape indicating which values are actually observed. This allows us to flexibly specify partial observations or sketch-based constraints.\nI experimented with classifier-free guidance (CFG)9 to control the strength of conditioning during sampling. In this setting, I found it to be quite sensitive. One possible reason is that the unconditional branch is relatively noisy. Since we parameterize the generation target as trajectory deltas, the dynamics are highly dependent on anchor points such as agent positions at specific time points provided in the context. Without such minimal reference, the unconditional model has to represent a very broad distribution over possible trajectories, which can make it a poor baseline. Since CFG scales the difference between conditional and unconditional predictions, this can lead to unstable guidance signals and distorted trajectories when the guidance scale is increased. Empirically, values around \\(gs = 1.0\\) produced the most coherent results. I’ll defer a deeper discussion of how CFG works to a separate post, and highly recommend this post10 for an intuitive understanding.\nOther stuff\nThe model is trained using a noise-prediction diffusion objective with learned variance parameterization. For readers who are interested about the implementation details, please refer to the code base.\n4. Sanity check benchmark Before diving deeper into sketch-guided simulation, I wanted to sanity check whether the model can handle a standard trajectory forecasting setup. I follow a common protocol on an NBA trajectory dataset from SportVU, where the first 2 seconds of player and ball movements are treated as observed trajectories, and the task is to predict their positions over the next 4 seconds. In my setup, I just need to treat the first 2 seconds’ data as conditioning input.\nminADE\\(_{20}\\) / minFDE\\(_{20}\\) (metres) results:\nTime GroupNet11\nCVPR'22 LED12\nCVPR'23 MoFlow\n(joint obj.) MoFlow13\nCVPR'25 CausalTraj5\n(C-PointNet) This Work 1.0s 0.25/0.32 0.21/0.27 0.28/0.39 0.18/0.25 0.15/0.21 0.17/0.22 2.0s 0.47/0.68 0.44/0.56 0.48/0.71 0.34/0.47 0.34/0.50 0.35/0.51 3.0s 0.71/0.99 0.69/0.84 0.68/1.01 0.52/0.67 0.55/0.78 0.57/0.79 4.0s 0.95/1.22 0.81/1.10 0.89/1.32 0.71/0.87 0.77/1.01 0.79/1.03 minJADE\\(_{20}\\) / minJFDE\\(_{20}\\) (metres) results:\nTime GroupNet\nCVPR'22 LED\nCVPR'23 MoFlow\n(joint obj.) MoFlow\nCVPR'25 CausalTraj\n(C-PointNet) This Work 1.0s 0.50/0.77 0.34/0.64 0.40/0.67 0.37/0.68 0.28/0.50 0.27/0.52 2.0s 1.04/1.91 0.78/1.55 0.81/1.61 0.80/1.61 0.62/1.18 0.64/1.21 3.0s 1.61/2.98 1.22/2.36 1.27/2.55 1.25/2.49 0.98/1.86 1.01/1.89 4.0s 2.12/3.72 1.63/2.99 1.72/3.33 1.69/3.31 1.34/2.47 1.36/2.47 The ADE and FDE metrics measure the average and final displacement error of predicted trajectories against the ground truth. Specifically, they report the minimum error over 20 candidate future trajectories, selected independently for each agent. The joint metrics (minJADE, minJFDE) instead require selecting a single candidate trajectory jointly for all agents, without mixing predictions across different candidates. The lower the values the better. I haven’t spent much time tuning hyperparameters yet and this model is already performing competitively with prior work.\nAlso, as the default ancestral sampling method is too time-consuming, we resort to using DPM-Solver++14 for accelerated sampling to produce the results in this benchmark. This is expected to sacrifice the performance a little as we do not make use of the learned variance during sampling. I will make another post in the future to go into more details about several accelerated sampling methods for diffusion.\n5. From canvas to simulation I made a simple gameplay trajectory canvas app with streamlit so that it is convenient for anyone to create guidance trajectory sketches to feed to the model.\nYou can fire up the app and load the dataset locally. You can simply select an active agent on the left, then use your cursor to sketch out the path you want the agent to follow in the next 6 seconds on the court.\nFor now, the conditioning interface is still quite minimal. The sketched trajectories are converted into paths with a fixed time horizon, and I currently assume a uniform speed along the path. This is obviously a simplification, and it limits the expressiveness of the instructions. In reality, player movement often involves changes in speed, pauses, and more nuanced intent.\nHere I will show a few instructive sketches I made with the app given the same initial game state, and their corresponding simulations generated by the model:\nOff-ball interchange between 2 attackers to stir up defense structure. Sketched trajectory conditioning Simulated gameplay A player attempts a screen to free the ball handler for a drive. Sketched trajectory conditioning Simulated gameplay A dribble handoff between the initial dribbler and the player on the right. Sketched trajectory conditioning Simulated gameplay 6. Takeaways and next steps Diffusion models are pretty flexible when it comes to conditioning. You can guide them with partial trajectory inputs at different time points, even with different temporal extents for each agent. Denoising behaves as a form of global, progressive refinement, where high-level structure of the play emerges earlier and finer details are resolved over time, compared with the strictly sequential prediction in autoregressive models.\nMoving forward, I think we absolutely need better ways to evaluate simulation quality, including both realism (how plausible the trajectories are) and controllability (how well the outputs follow the given instructions). I also intend to explore richer forms of control, such as allowing users to specify speed profiles, or even higher-level instructions (e.g. “move into this area within the next few seconds”) instead of requiring a fully specified trajectory.\nIf you spotted any errors in this post or have ideas that you would like to discuss, please leave a comment!\nIf you would like to cite this post in an academic context, you can use the following BibTeX:\n@misc{teoh2026trajectorydiffusion, author = {Teoh, Wei Zhen}, title = {Diffusion for Sketch-Guided Trajectory Simulation}, year = {2026}, url = {https://wezteoh.github.io/posts/diffusion-for-sketch-guided-trajectory-simulation}, note = {Technical blog post} } References Seidl, T., Cherukumudi, A., Hartnett, A., Carr, P., \u0026 Lucey, P. (2018). Bhostgusters: Realtime interactive play sketching with synthesized NBA defenses. MIT Sloan Sports Analytics Conference. https://www.sloansportsconference.com/research-papers/bhostgusters-realtime-interactive-play-sketching-with-synthesized-nba-defenses ↩︎\nHsieh, H.-Y., Chen, C.-Y., Wang, Y.-S., \u0026 Chuang, J.-H. (2019). BasketballGAN: Generating basketball play simulation through sketching. arXiv. https://arxiv.org/abs/1909.07088 ↩︎\nSohl-Dickstein, J., Weiss, E. A., Maheswaranathan, N., \u0026 Ganguli, S. (2015). Deep unsupervised learning using nonequilibrium thermodynamics. arXiv. https://arxiv.org/abs/1503.03585 ↩︎\nHo, J., Jain, A., \u0026 Abbeel, P. (2020). Denoising diffusion probabilistic models. arXiv:2006.11239 ↩︎\nTeoh, W. Z. (2025). Coherent multi-agent trajectory forecasting in team sports with CausalTraj. arXiv. https://arxiv.org/abs/2511.18248 ↩︎ ↩︎\nDieleman, S. (2024, September 2). Diffusion is spectral autoregression. https://sander.ai/2024/09/02/spectral-autoregression.html ↩︎\nPeebles, W., \u0026 Xie, S. (2022). Scalable diffusion models with transformers. arXiv preprint arXiv:2212.09748. https://arxiv.org/abs/2212.09748 ↩︎\nBruce, J., et al. (2024). Genie: Generative interactive environments. arXiv. https://arxiv.org/abs/2402.15391 ↩︎\nHo, J., \u0026 Salimans, T. (2022). Classifier-free diffusion guidance. arXiv. https://arxiv.org/abs/2207.12598 ↩︎\nDieleman, S. (2022, May 26). Guidance: A cheat code for diffusion models. https://sander.ai/2022/05/26/guidance.html ↩︎\nXu, C., Li, M., Ni, Z., Zhang, Y., \u0026 Chen, S. (2022). GroupNet: Multiscale hypergraph neural networks for trajectory prediction with relational reasoning. arXiv. https://arxiv.org/abs/2204.08770 ↩︎\nMao, W., Xu, C., Zhu, Q., Chen, S., \u0026 Wang, Y. (2023). Leapfrog diffusion model for stochastic trajectory prediction. arXiv. https://arxiv.org/abs/2303.10895 ↩︎\nFu, Y., Yan, Q., Wang, L., Li, K., \u0026 Liao, R. (2025). MoFlow: One-step flow matching for human trajectory forecasting via implicit maximum likelihood estimation based distillation. arXiv. https://arxiv.org/abs/2503.09950 ↩︎\nLu, C., Zhou, Y., Bao, F., Chen, J., Li, C., \u0026 Zhu, J. (2022). DPM-Solver++: Fast solver for guided sampling of diffusion probabilistic models. arXiv. http://arxiv.org/abs/2211.01095 ↩︎\n",
+  "wordCount" : "1955",
+  "inLanguage": "en",
+  "image": "https://wezteoh.github.io/images/trajsketch_main.jpg","datePublished": "2026-04-28T00:00:00Z",
+  "dateModified": "2026-04-28T00:00:00Z",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://wezteoh.github.io/posts/diffusion-for-sketch-guided-trajectory-simulation/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Some days I delve",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://wezteoh.github.io/%3Clink%20/%20abs%20url%3E"
+    }
+  }
+}
+</script>
+</head>
+
+<body class="" id="top">
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.body.classList.add('dark');
+    } else if (localStorage.getItem("pref-theme") === "light") {
+        document.body.classList.remove('dark')
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark');
+    }
+
+</script>
+
+<header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="https://wezteoh.github.io/" accesskey="h" title="Some days I delve (Alt + H)">
+                <img src="https://wezteoh.github.io/apple-touch-icon.png" alt="" aria-label="logo"
+                    height="35">Some days I delve</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="https://wezteoh.github.io/">Home</a>&nbsp;»&nbsp;<a href="https://wezteoh.github.io/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Diffusion for sketch-guided trajectory simulation
+    </h1>
+    <div class="post-meta">
+
+
+<span title='2026-04-28 00:00:00 +0000 UTC'>April 28, 2026</span>&nbsp;·&nbsp;16 min&nbsp;·&nbsp;1955 words
+
+</div>
+  </header> <div class="toc">
+    <details  open>
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><nav id="TableOfContents">
+  <ul>
+    <li><a href="#1-the-idea-of-sketch-guided-trajectory-simulation">1. The idea of sketch-guided trajectory simulation</a></li>
+    <li><a href="#2-why-diffusion-for-this-task">2. Why diffusion for this task</a></li>
+    <li><a href="#3-model-setup">3. Model setup</a></li>
+    <li><a href="#4-sanity-check-benchmark">4. Sanity check benchmark</a></li>
+    <li><a href="#5-from-canvas-to-simulation">5. From canvas to simulation</a></li>
+    <li><a href="#6-takeaways-and-next-steps">6. Takeaways and next steps</a></li>
+    <li><a href="#references">References</a></li>
+  </ul>
+</nav>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><blockquote>
+<p>Trajectory forecasting models aim to predict the future positions of agents given past observations. However, many real-world applications such as sports analytics require not just prediction, but controllable simulation of plausible futures under hypothetical scenarios. In this post, I investigate diffusion-based models for trajectory generation, and show how high-level “sketches” of plays can guide multi-agent dynamics. I have open sourced the code base for the <a href="https://github.com/wezteoh/gameplay-trajectory-diffusion">model</a> and <a href="https://github.com/wezteoh/gameplay-trajectory-canvas">canvas app</a>.</p></blockquote>
+<hr>
+<div style="display:flex; gap:1rem; flex-wrap:wrap;">
+  <figure style="flex:1 1 300px; margin:0;">
+    <img src="/images/trajsketch_main.jpg" style="width:100%; height:auto;">
+    <figcaption>Sketched trajectory conditioning</figcaption>
+  </figure>
+  <figure style="flex:1 1 300px; margin:0;">
+    <img src="/gifs/trajectory_main.gif" style="width:100%; height:auto;">
+    <figcaption>Simulated gameplay</figcaption>
+  </figure>
+</div>
+<h2 id="1-the-idea-of-sketch-guided-trajectory-simulation">1. The idea of sketch-guided trajectory simulation<a hidden class="anchor" aria-hidden="true" href="#1-the-idea-of-sketch-guided-trajectory-simulation">#</a></h2>
+<p>During NBA games, coaches often have to plan attacking plays to break through a defensive setup within a short period of time. They may sketch out instructions for a few players on a whiteboard, and rely on their mental model to project how both teammates and opponents might move in response. Prior work has explored data-driven approaches for this problem, using imitation learning<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> and GANs<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> to generate sketch-conditioned gameplay simulations. In this post, I explore whether diffusion models<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup> can be used for this task as well. If you are unfamiliar with diffusion, please check out this <a href="https://wezteoh.github.io/posts/understanding-diffusion-through-vae/">post</a>.</p>
+<h2 id="2-why-diffusion-for-this-task">2. Why diffusion for this task<a hidden class="anchor" aria-hidden="true" href="#2-why-diffusion-for-this-task">#</a></h2>
+<p>Previously, I got good results modeling trajectory prediction with an autoregressive setup<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>. One intuition I had was that autoregressive models effectively get more compute capacity per sample compared to most parallel prediction models of similar size, as each step requires a new forward pass and reuses the full model capacity. In practice, this often leads to more coherent trajectories.</p>
+<p>Diffusion models share a similar property. Instead of generating trajectories in a single pass, they can iteratively refine a noisy sample over multiple forward passes, repeatedly applying their full capacity in the process.</p>
+<figure>
+    <img loading="lazy" src="/images/traj_diffusion_evolution_big.jpg"
+         alt="Progressive denoising of a sampled gameplay from my model. The overall structure of the play (spacing and movement direction) emerges earlier, with later steps refining finer details."/> <figcaption>
+            <p>Progressive denoising of a sampled gameplay from my model. The overall structure of the play (spacing and movement direction) emerges earlier, with later steps refining finer details.</p>
+        </figcaption>
+</figure>
+
+<p>I later came across interpretations of diffusion as a form of autoregression in the frequency domain<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup>, which further supports this connection. This planted the idea in my head that diffusion models could be a viable alternative for trajectory simulation. The key difference is that diffusion models operate on the full trajectory jointly at every refinement step, allowing them to repeatedly adjust the entire trajectory in a globally consistent way. In contrast, autoregressive models, even with access to global context, are structured around a sequential generation process. This makes it less natural to use that context for satisfying global or future constraints.</p>
+<p>One simple example is when we want to guide only part of a play at a few future time points. In the diffusion setup, this can be expressed directly as partial conditioning at those time points, even if intermediate frames are missing. The model then refines the full trajectory to approximately satisfy these constraints. In contrast, autoregressive models commit to predictions step-by-step and tend to prioritize local consistency. This makes it harder to guide the sample trajectory towards matching a future endpoint, without modifying the generation process.</p>
+<h2 id="3-model-setup">3. Model setup<a hidden class="anchor" aria-hidden="true" href="#3-model-setup">#</a></h2>
+<p>Instead of generating absolute positions, I decide to make the model generate frame-to-frame position deltas for each agent. This keeps the target distribution more uniform in scale and makes the learning problem easier, especially for longer trajectories. The model operates on tensors of shape: <code>[batch, seq_len, num_agents, coord_dim]</code>.</p>
+<p><strong>Model backbone</strong><br>
+The overall architecture is inspired by DiT<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup>, but adapted for sequential multi-agent data rather than images. The key design choice is to factorize attention across time and agents, rather than applying joint attention over all dimensions. Concretely, we alternate between two types of transformer layers:</p>
+<ul>
+<li>Temporal attention layers, which attend over the temporal dimension independently for each agent</li>
+<li>Agent attention layers, which attend over all agents at each fixed timestep</li>
+</ul>
+<p>This factorization allows the model to separately capture temporal dynamics (how trajectories evolve) and inter-agent interactions (coordination, collision avoidance), without paying the full cost of joint attention over all dimensions. Conceptually, this is similar to spatiotemporal factorization used in video models (e.g. within Genie<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup>), where attention is separated along spatial and temporal axes.</p>
+<figure>
+    <img loading="lazy" src="/images/genie_sttransformer.jpg"
+         alt="Spatiotemporal module used in the Genie model, with interleaved spatial and temporal attention layers. Each color represents a single self attention map: spatial layer attends all spatial locations over the image at one timepoint, temporal layer attends one spatial location over time. (Image source: Bruce, J., et al. 2024)." width="100%"/> <figcaption>
+            <p>Spatiotemporal module used in the Genie model, with interleaved spatial and temporal attention layers. Each color represents a single self attention map: spatial layer attends all spatial locations over the image at one timepoint, temporal layer attends one spatial location over time. (Image source: Bruce, J., et al. 2024).</p>
+        </figcaption>
+</figure>
+
+<p>In our setup, we make a small adaptation from the original DiT design by creating patches along the time dimension for each agent, reflecting the sequential nature of the data.</p>
+<p><strong>Applying conditioning</strong><br>
+For conditioning, we provide trajectories and its stepwise deltas (with observed + mask-filled portions) and a binary mask of the same shape indicating which values are actually observed. This allows us to flexibly specify partial observations or sketch-based constraints.</p>
+<p>I experimented with classifier-free guidance (CFG)<sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> to control the strength of conditioning during sampling. In this setting, I found it to be quite sensitive. One possible reason is that the unconditional branch is relatively noisy. Since we parameterize the generation target as trajectory deltas, the dynamics are highly dependent on anchor points such as agent positions at specific time points provided in the context. Without such minimal reference, the unconditional model has to represent a very broad distribution over possible trajectories, which can make it a poor baseline. Since CFG scales the difference between conditional and unconditional predictions, this can lead to unstable guidance signals and distorted trajectories when the guidance scale is increased. Empirically, values around \(gs = 1.0\) produced the most coherent results. I’ll defer a deeper discussion of how CFG works to a separate post, and highly recommend this post<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup> for an intuitive understanding.</p>
+<p><strong>Other stuff</strong><br>
+The model is trained using a noise-prediction diffusion objective with learned variance parameterization. For readers who are interested about the implementation details, please refer to the <a href="https://github.com/wezteoh/gameplay-trajectory-diffusion">code base</a>.</p>
+<h2 id="4-sanity-check-benchmark">4. Sanity check benchmark<a hidden class="anchor" aria-hidden="true" href="#4-sanity-check-benchmark">#</a></h2>
+<p>Before diving deeper into sketch-guided simulation, I wanted to sanity check whether the model can handle a standard trajectory forecasting setup. I follow a common protocol on an NBA trajectory dataset from <a href="https://github.com/linouk23/NBA-Player-Movements">SportVU</a>, where the first 2 seconds of player and ball movements are treated as observed trajectories, and the task is to predict their positions over the next 4 seconds. In my setup, I just need to treat the first 2 seconds&rsquo; data as conditioning input.</p>
+<p>minADE\(_{20}\) / minFDE\(_{20}\) (metres) results:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Time</th>
+          <th>GroupNet<sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup><br>CVPR'22</th>
+          <th>LED<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup><br>CVPR'23</th>
+          <th>MoFlow<br>(joint obj.)</th>
+          <th>MoFlow<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup><br>CVPR'25</th>
+          <th>CausalTraj<sup id="fnref1:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup><br>(C-PointNet)</th>
+          <th><em>This Work</em></th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1.0s</td>
+          <td>0.25/0.32</td>
+          <td>0.21/0.27</td>
+          <td>0.28/0.39</td>
+          <td>0.18/0.25</td>
+          <td>0.15/0.21</td>
+          <td>0.17/0.22</td>
+      </tr>
+      <tr>
+          <td>2.0s</td>
+          <td>0.47/0.68</td>
+          <td>0.44/0.56</td>
+          <td>0.48/0.71</td>
+          <td>0.34/0.47</td>
+          <td>0.34/0.50</td>
+          <td>0.35/0.51</td>
+      </tr>
+      <tr>
+          <td>3.0s</td>
+          <td>0.71/0.99</td>
+          <td>0.69/0.84</td>
+          <td>0.68/1.01</td>
+          <td>0.52/0.67</td>
+          <td>0.55/0.78</td>
+          <td>0.57/0.79</td>
+      </tr>
+      <tr>
+          <td>4.0s</td>
+          <td>0.95/1.22</td>
+          <td>0.81/1.10</td>
+          <td>0.89/1.32</td>
+          <td>0.71/0.87</td>
+          <td>0.77/1.01</td>
+          <td>0.79/1.03</td>
+      </tr>
+  </tbody>
+</table>
+<p>minJADE\(_{20}\) / minJFDE\(_{20}\) (metres) results:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Time</th>
+          <th>GroupNet<br>CVPR'22</th>
+          <th>LED<br>CVPR'23</th>
+          <th>MoFlow<br>(joint obj.)</th>
+          <th>MoFlow<br>CVPR'25</th>
+          <th>CausalTraj<br>(C-PointNet)</th>
+          <th><em>This Work</em></th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1.0s</td>
+          <td>0.50/0.77</td>
+          <td>0.34/0.64</td>
+          <td>0.40/0.67</td>
+          <td>0.37/0.68</td>
+          <td>0.28/0.50</td>
+          <td>0.27/0.52</td>
+      </tr>
+      <tr>
+          <td>2.0s</td>
+          <td>1.04/1.91</td>
+          <td>0.78/1.55</td>
+          <td>0.81/1.61</td>
+          <td>0.80/1.61</td>
+          <td>0.62/1.18</td>
+          <td>0.64/1.21</td>
+      </tr>
+      <tr>
+          <td>3.0s</td>
+          <td>1.61/2.98</td>
+          <td>1.22/2.36</td>
+          <td>1.27/2.55</td>
+          <td>1.25/2.49</td>
+          <td>0.98/1.86</td>
+          <td>1.01/1.89</td>
+      </tr>
+      <tr>
+          <td>4.0s</td>
+          <td>2.12/3.72</td>
+          <td>1.63/2.99</td>
+          <td>1.72/3.33</td>
+          <td>1.69/3.31</td>
+          <td>1.34/2.47</td>
+          <td>1.36/2.47</td>
+      </tr>
+  </tbody>
+</table>
+<p>The ADE and FDE metrics measure the average and final displacement error of predicted trajectories against the ground truth. Specifically, they report the minimum error over 20 candidate future trajectories, selected independently for each agent. The joint metrics (minJADE, minJFDE) instead require selecting a single candidate trajectory jointly for all agents, without mixing predictions across different candidates. The lower the values the better. I haven’t spent much time tuning hyperparameters yet and this model is already performing competitively with prior work.</p>
+<p>Also, as the default ancestral sampling method is too time-consuming, we resort to using DPM-Solver++<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> for accelerated sampling to produce the results in this benchmark. This is expected to sacrifice the performance a little as we do not make use of the learned variance during sampling. I will make another post in the future to go into more details about several accelerated sampling methods for diffusion.</p>
+<h2 id="5-from-canvas-to-simulation">5. From canvas to simulation<a hidden class="anchor" aria-hidden="true" href="#5-from-canvas-to-simulation">#</a></h2>
+<p>I made a simple gameplay trajectory canvas <a href="https://github.com/wezteoh/gameplay-trajectory-canvas">app</a> with streamlit so that it is convenient for anyone to create guidance trajectory sketches to feed to the model.</p>
+<figure>
+    <img loading="lazy" src="/images/canvas.jpg"
+         alt="You can fire up the app and load the dataset locally. You can simply select an active agent on the left, then use your cursor to sketch out the path you want the agent to follow in the next 6 seconds on the court." width="100%"/> <figcaption>
+            <p>You can fire up the app and load the dataset locally. You can simply select an active agent on the left, then use your cursor to sketch out the path you want the agent to follow in the next 6 seconds on the court.</p>
+        </figcaption>
+</figure>
+
+<p>For now, the conditioning interface is still quite minimal. The sketched trajectories are converted into paths with a fixed time horizon, and I currently assume a uniform speed along the path. This is obviously a simplification, and it limits the expressiveness of the instructions. In reality, player movement often involves changes in speed, pauses, and more nuanced intent.</p>
+<p>Here I will show a few instructive sketches I made with the app given the same initial game state, and their corresponding simulations generated by the model:</p>
+<ul>
+<li>Off-ball interchange between 2 attackers to stir up defense structure.</li>
+</ul>
+<div style="display:flex; gap:1rem; flex-wrap:wrap;">
+  <figure style="flex:1 1 300px; margin:0;">
+    <img src="/images/trajsketch_stir.jpg" style="width:100%; height:auto;">
+    <figcaption>Sketched trajectory conditioning</figcaption>
+  </figure>
+  <figure style="flex:1 1 300px; margin:0;">
+    <img src="/gifs/trajectory_stir.gif" style="width:100%; height:auto;">
+    <figcaption>Simulated gameplay</figcaption>
+  </figure>
+</div>
+<ul>
+<li>A player attempts a screen to free the ball handler for a drive.</li>
+</ul>
+<div style="display:flex; gap:1rem; flex-wrap:wrap;">
+  <figure style="flex:1 1 300px; margin:0;">
+    <img src="/images/trajsketch_screen.jpg" style="width:100%; height:auto;">
+    <figcaption>Sketched trajectory conditioning</figcaption>
+  </figure>
+  <figure style="flex:1 1 300px; margin:0;">
+    <img src="/gifs/trajectory_screen.gif" style="width:100%; height:auto;">
+    <figcaption>Simulated gameplay</figcaption>
+  </figure>
+</div>
+<ul>
+<li>A dribble handoff between the initial dribbler and the player on the right.</li>
+</ul>
+<div style="display:flex; gap:1rem; flex-wrap:wrap;">
+  <figure style="flex:1 1 300px; margin:0;">
+    <img src="/images/trajsketch_swap.jpg" style="width:100%; height:auto;">
+    <figcaption>Sketched trajectory conditioning</figcaption>
+  </figure>
+  <figure style="flex:1 1 300px; margin:0;">
+    <img src="/gifs/trajectory_swap.gif" style="width:100%; height:auto;">
+    <figcaption>Simulated gameplay</figcaption>
+  </figure>
+</div>
+<h2 id="6-takeaways-and-next-steps">6. Takeaways and next steps<a hidden class="anchor" aria-hidden="true" href="#6-takeaways-and-next-steps">#</a></h2>
+<p>Diffusion models are pretty flexible when it comes to conditioning. You can guide them with partial trajectory inputs at different time points, even with different temporal extents for each agent. Denoising behaves as a form of global, progressive refinement, where high-level structure of the play emerges earlier and finer details are resolved over time, compared with the strictly sequential prediction in autoregressive models.</p>
+<p>Moving forward, I think we absolutely need better ways to evaluate simulation quality, including both realism (how plausible the trajectories are) and controllability (how well the outputs follow the given instructions). I also intend to explore richer forms of control, such as allowing users to specify speed profiles, or even higher-level instructions (e.g. “move into this area within the next few seconds”) instead of requiring a fully specified trajectory.</p>
+<hr>
+<p>If you spotted any errors in this post or have ideas that you would like to discuss, please leave a comment!</p>
+<p>If you would like to cite this post in an academic context, you can use the following BibTeX:</p>
+<pre tabindex="0"><code>@misc{teoh2026trajectorydiffusion,
+  author       = {Teoh, Wei Zhen},
+  title        = {Diffusion for Sketch-Guided Trajectory Simulation},
+  year         = {2026},
+  url          = {https://wezteoh.github.io/posts/diffusion-for-sketch-guided-trajectory-simulation},
+  note         = {Technical blog post}
+}
+</code></pre><hr>
+<h2 id="references">References<a hidden class="anchor" aria-hidden="true" href="#references">#</a></h2>
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p><a href="https://www.sloansportsconference.com/research-papers/bhostgusters-realtime-interactive-play-sketching-with-synthesized-nba-defenses">Seidl, T., Cherukumudi, A., Hartnett, A., Carr, P., &amp; Lucey, P. (2018). <em>Bhostgusters: Realtime interactive play sketching with synthesized NBA defenses.</em> MIT Sloan Sports Analytics Conference. https://www.sloansportsconference.com/research-papers/bhostgusters-realtime-interactive-play-sketching-with-synthesized-nba-defenses</a>&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:2">
+<p><a href="https://arxiv.org/abs/1909.07088">Hsieh, H.-Y., Chen, C.-Y., Wang, Y.-S., &amp; Chuang, J.-H. (2019). <em>BasketballGAN: Generating basketball play simulation through sketching.</em> arXiv. https://arxiv.org/abs/1909.07088</a>&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:3">
+<p><a href="https://arxiv.org/abs/1503.03585">Sohl-Dickstein, J., Weiss, E. A., Maheswaranathan, N., &amp; Ganguli, S. (2015). Deep unsupervised learning using nonequilibrium thermodynamics. arXiv. https://arxiv.org/abs/1503.03585</a>&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:4">
+<p><a href="https://arxiv.org/abs/2006.11239">Ho, J., Jain, A., &amp; Abbeel, P. (2020). Denoising diffusion probabilistic models. arXiv:2006.11239</a>&#160;<a href="#fnref:4" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:5">
+<p><a href="https://causaltraj.github.io/">Teoh, W. Z. (2025). <em>Coherent multi-agent trajectory forecasting in team sports with CausalTraj</em>. arXiv. https://arxiv.org/abs/2511.18248</a>&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a>&#160;<a href="#fnref1:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:6">
+<p><a href="https://sander.ai/2024/09/02/spectral-autoregression.html">Dieleman, S. (2024, September 2). <em>Diffusion is spectral autoregression</em>. https://sander.ai/2024/09/02/spectral-autoregression.html</a>&#160;<a href="#fnref:6" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:7">
+<p><a href="https://arxiv.org/abs/2212.09748">Peebles, W., &amp; Xie, S. (2022). <em>Scalable diffusion models with transformers</em>. <em>arXiv preprint arXiv:2212.09748</em>. https://arxiv.org/abs/2212.09748</a>&#160;<a href="#fnref:7" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:8">
+<p><a href="https://arxiv.org/abs/2402.15391">Bruce, J., et al. (2024). <em>Genie: Generative interactive environments</em>. arXiv. https://arxiv.org/abs/2402.15391</a>&#160;<a href="#fnref:8" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:9">
+<p><a href="https://arxiv.org/abs/2207.12598">Ho, J., &amp; Salimans, T. (2022). <em>Classifier-free diffusion guidance</em>. arXiv. https://arxiv.org/abs/2207.12598</a>&#160;<a href="#fnref:9" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:10">
+<p><a href="https://sander.ai/2022/05/26/guidance.html">Dieleman, S. (2022, May 26). <em>Guidance: A cheat code for diffusion models</em>. https://sander.ai/2022/05/26/guidance.html</a>&#160;<a href="#fnref:10" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:11">
+<p><a href="https://arxiv.org/abs/2204.08770">Xu, C., Li, M., Ni, Z., Zhang, Y., &amp; Chen, S. (2022). <em>GroupNet: Multiscale hypergraph neural networks for trajectory prediction with relational reasoning</em>. arXiv. https://arxiv.org/abs/2204.08770</a>&#160;<a href="#fnref:11" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:12">
+<p><a href="https://arxiv.org/abs/2303.10895">Mao, W., Xu, C., Zhu, Q., Chen, S., &amp; Wang, Y. (2023). <em>Leapfrog diffusion model for stochastic trajectory prediction</em>. arXiv. https://arxiv.org/abs/2303.10895</a>&#160;<a href="#fnref:12" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:13">
+<p><a href="https://arxiv.org/abs/2503.09950">Fu, Y., Yan, Q., Wang, L., Li, K., &amp; Liao, R. (2025). <em>MoFlow: One-step flow matching for human trajectory forecasting via implicit maximum likelihood estimation based distillation</em>. arXiv. https://arxiv.org/abs/2503.09950</a>&#160;<a href="#fnref:13" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:14">
+<p><a href="http://arxiv.org/abs/2211.01095">Lu, C., Zhou, Y., Bao, F., Chen, J., Li, C., &amp; Zhu, J. (2022). <em>DPM-Solver++: Fast solver for guided sampling of diffusion probabilistic models</em>. arXiv. http://arxiv.org/abs/2211.01095</a>&#160;<a href="#fnref:14" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="https://wezteoh.github.io/tags/diffusion/">Diffusion</a></li>
+      <li><a href="https://wezteoh.github.io/tags/trajectory-simulation/">Trajectory Simulation</a></li>
+      <li><a href="https://wezteoh.github.io/tags/sports-analytics/">Sports Analytics</a></li>
+      <li><a href="https://wezteoh.github.io/tags/controllable-generation/">Controllable Generation</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="next" href="https://wezteoh.github.io/posts/understanding-diffusion-through-vae/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Understanding diffusion through VAE</span>
+  </a>
+</nav>
+
+
+<ul class="share-buttons">
+    <li>
+        <a target="_blank" rel="noopener noreferrer" aria-label="share Diffusion for sketch-guided trajectory simulation on x"
+            href="https://x.com/intent/tweet/?text=Diffusion%20for%20sketch-guided%20trajectory%20simulation&amp;url=https%3a%2f%2fwezteoh.github.io%2fposts%2fdiffusion-for-sketch-guided-trajectory-simulation%2f&amp;hashtags=diffusion%2ctrajectorysimulation%2csportsanalytics%2ccontrollablegeneration">
+            <svg version="1.1" viewBox="0 0 512 512" xml:space="preserve" height="30px" width="30px" fill="currentColor">
+                <path
+                    d="M512 62.554 L 512 449.446 C 512 483.97 483.97 512 449.446 512 L 62.554 512 C 28.03 512 0 483.97 0 449.446 L 0 62.554 C 0 28.03 28.029 0 62.554 0 L 449.446 0 C 483.971 0 512 28.03 512 62.554 Z M 269.951 190.75 L 182.567 75.216 L 56 75.216 L 207.216 272.95 L 63.9 436.783 L 125.266 436.783 L 235.9 310.383 L 332.567 436.783 L 456 436.783 L 298.367 228.367 L 432.367 75.216 L 371.033 75.216 Z M 127.633 110 L 164.101 110 L 383.481 400.065 L 349.5 400.065 Z" />
+            </svg>
+        </a>
+    </li>
+    <li>
+        <a target="_blank" rel="noopener noreferrer" aria-label="share Diffusion for sketch-guided trajectory simulation on linkedin"
+            href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https%3a%2f%2fwezteoh.github.io%2fposts%2fdiffusion-for-sketch-guided-trajectory-simulation%2f&amp;title=Diffusion%20for%20sketch-guided%20trajectory%20simulation&amp;summary=Diffusion%20for%20sketch-guided%20trajectory%20simulation&amp;source=https%3a%2f%2fwezteoh.github.io%2fposts%2fdiffusion-for-sketch-guided-trajectory-simulation%2f">
+            <svg version="1.1" viewBox="0 0 512 512" xml:space="preserve" height="30px" width="30px" fill="currentColor">
+                <path
+                    d="M449.446,0c34.525,0 62.554,28.03 62.554,62.554l0,386.892c0,34.524 -28.03,62.554 -62.554,62.554l-386.892,0c-34.524,0 -62.554,-28.03 -62.554,-62.554l0,-386.892c0,-34.524 28.029,-62.554 62.554,-62.554l386.892,0Zm-288.985,423.278l0,-225.717l-75.04,0l0,225.717l75.04,0Zm270.539,0l0,-129.439c0,-69.333 -37.018,-101.586 -86.381,-101.586c-39.804,0 -57.634,21.891 -67.617,37.266l0,-31.958l-75.021,0c0.995,21.181 0,225.717 0,225.717l75.02,0l0,-126.056c0,-6.748 0.486,-13.492 2.474,-18.315c5.414,-13.475 17.767,-27.434 38.494,-27.434c27.135,0 38.007,20.707 38.007,51.037l0,120.768l75.024,0Zm-307.552,-334.556c-25.674,0 -42.448,16.879 -42.448,39.002c0,21.658 16.264,39.002 41.455,39.002l0.484,0c26.165,0 42.452,-17.344 42.452,-39.002c-0.485,-22.092 -16.241,-38.954 -41.943,-39.002Z" />
+            </svg>
+        </a>
+    </li>
+    <li>
+        <a target="_blank" rel="noopener noreferrer" aria-label="share Diffusion for sketch-guided trajectory simulation on reddit"
+            href="https://reddit.com/submit?url=https%3a%2f%2fwezteoh.github.io%2fposts%2fdiffusion-for-sketch-guided-trajectory-simulation%2f&title=Diffusion%20for%20sketch-guided%20trajectory%20simulation">
+            <svg version="1.1" viewBox="0 0 512 512" xml:space="preserve" height="30px" width="30px" fill="currentColor">
+                <path
+                    d="M449.446,0c34.525,0 62.554,28.03 62.554,62.554l0,386.892c0,34.524 -28.03,62.554 -62.554,62.554l-386.892,0c-34.524,0 -62.554,-28.03 -62.554,-62.554l0,-386.892c0,-34.524 28.029,-62.554 62.554,-62.554l386.892,0Zm-3.446,265.638c0,-22.964 -18.616,-41.58 -41.58,-41.58c-11.211,0 -21.361,4.457 -28.841,11.666c-28.424,-20.508 -67.586,-33.757 -111.204,-35.278l18.941,-89.121l61.884,13.157c0.756,15.734 13.642,28.29 29.56,28.29c16.407,0 29.706,-13.299 29.706,-29.701c0,-16.403 -13.299,-29.702 -29.706,-29.702c-11.666,0 -21.657,6.792 -26.515,16.578l-69.105,-14.69c-1.922,-0.418 -3.939,-0.042 -5.585,1.036c-1.658,1.073 -2.811,2.761 -3.224,4.686l-21.152,99.438c-44.258,1.228 -84.046,14.494 -112.837,35.232c-7.468,-7.164 -17.589,-11.591 -28.757,-11.591c-22.965,0 -41.585,18.616 -41.585,41.58c0,16.896 10.095,31.41 24.568,37.918c-0.639,4.135 -0.99,8.328 -0.99,12.576c0,63.977 74.469,115.836 166.33,115.836c91.861,0 166.334,-51.859 166.334,-115.836c0,-4.218 -0.347,-8.387 -0.977,-12.493c14.564,-6.47 24.735,-21.034 24.735,-38.001Zm-119.474,108.193c-20.27,20.241 -59.115,21.816 -70.534,21.816c-11.428,0 -50.277,-1.575 -70.522,-21.82c-3.007,-3.008 -3.007,-7.882 0,-10.889c3.003,-2.999 7.882,-3.003 10.885,0c12.777,12.781 40.11,17.317 59.637,17.317c19.522,0 46.86,-4.536 59.657,-17.321c3.016,-2.999 7.886,-2.995 10.885,0.008c3.008,3.011 3.003,7.882 -0.008,10.889Zm-5.23,-48.781c-16.373,0 -29.701,-13.324 -29.701,-29.698c0,-16.381 13.328,-29.714 29.701,-29.714c16.378,0 29.706,13.333 29.706,29.714c0,16.374 -13.328,29.698 -29.706,29.698Zm-160.386,-29.702c0,-16.381 13.328,-29.71 29.714,-29.71c16.369,0 29.689,13.329 29.689,29.71c0,16.373 -13.32,29.693 -29.689,29.693c-16.386,0 -29.714,-13.32 -29.714,-29.693Z" />
+            </svg>
+        </a>
+    </li>
+    <li>
+        <a target="_blank" rel="noopener noreferrer" aria-label="share Diffusion for sketch-guided trajectory simulation on facebook"
+            href="https://facebook.com/sharer/sharer.php?u=https%3a%2f%2fwezteoh.github.io%2fposts%2fdiffusion-for-sketch-guided-trajectory-simulation%2f">
+            <svg version="1.1" viewBox="0 0 512 512" xml:space="preserve" height="30px" width="30px" fill="currentColor">
+                <path
+                    d="M449.446,0c34.525,0 62.554,28.03 62.554,62.554l0,386.892c0,34.524 -28.03,62.554 -62.554,62.554l-106.468,0l0,-192.915l66.6,0l12.672,-82.621l-79.272,0l0,-53.617c0,-22.603 11.073,-44.636 46.58,-44.636l36.042,0l0,-70.34c0,0 -32.71,-5.582 -63.982,-5.582c-65.288,0 -107.96,39.569 -107.96,111.204l0,62.971l-72.573,0l0,82.621l72.573,0l0,192.915l-191.104,0c-34.524,0 -62.554,-28.03 -62.554,-62.554l0,-386.892c0,-34.524 28.029,-62.554 62.554,-62.554l386.892,0Z" />
+            </svg>
+        </a>
+    </li>
+    <li>
+        <a target="_blank" rel="noopener noreferrer" aria-label="share Diffusion for sketch-guided trajectory simulation on whatsapp"
+            href="https://api.whatsapp.com/send?text=Diffusion%20for%20sketch-guided%20trajectory%20simulation%20-%20https%3a%2f%2fwezteoh.github.io%2fposts%2fdiffusion-for-sketch-guided-trajectory-simulation%2f">
+            <svg version="1.1" viewBox="0 0 512 512" xml:space="preserve" height="30px" width="30px" fill="currentColor">
+                <path
+                    d="M449.446,0c34.525,0 62.554,28.03 62.554,62.554l0,386.892c0,34.524 -28.03,62.554 -62.554,62.554l-386.892,0c-34.524,0 -62.554,-28.03 -62.554,-62.554l0,-386.892c0,-34.524 28.029,-62.554 62.554,-62.554l386.892,0Zm-58.673,127.703c-33.842,-33.881 -78.847,-52.548 -126.798,-52.568c-98.799,0 -179.21,80.405 -179.249,179.234c-0.013,31.593 8.241,62.428 23.927,89.612l-25.429,92.884l95.021,-24.925c26.181,14.28 55.659,21.807 85.658,21.816l0.074,0c98.789,0 179.206,-80.413 179.247,-179.243c0.018,-47.895 -18.61,-92.93 -52.451,-126.81Zm-126.797,275.782l-0.06,0c-26.734,-0.01 -52.954,-7.193 -75.828,-20.767l-5.441,-3.229l-56.386,14.792l15.05,-54.977l-3.542,-5.637c-14.913,-23.72 -22.791,-51.136 -22.779,-79.287c0.033,-82.142 66.867,-148.971 149.046,-148.971c39.793,0.014 77.199,15.531 105.329,43.692c28.128,28.16 43.609,65.592 43.594,105.4c-0.034,82.149 -66.866,148.983 -148.983,148.984Zm81.721,-111.581c-4.479,-2.242 -26.499,-13.075 -30.604,-14.571c-4.105,-1.495 -7.091,-2.241 -10.077,2.241c-2.986,4.483 -11.569,14.572 -14.182,17.562c-2.612,2.988 -5.225,3.364 -9.703,1.12c-4.479,-2.241 -18.91,-6.97 -36.017,-22.23c-13.314,-11.876 -22.304,-26.542 -24.916,-31.026c-2.612,-4.484 -0.279,-6.908 1.963,-9.14c2.016,-2.007 4.48,-5.232 6.719,-7.847c2.24,-2.615 2.986,-4.484 4.479,-7.472c1.493,-2.99 0.747,-5.604 -0.374,-7.846c-1.119,-2.241 -10.077,-24.288 -13.809,-33.256c-3.635,-8.733 -7.327,-7.55 -10.077,-7.688c-2.609,-0.13 -5.598,-0.158 -8.583,-0.158c-2.986,0 -7.839,1.121 -11.944,5.604c-4.105,4.484 -15.675,15.32 -15.675,37.364c0,22.046 16.048,43.342 18.287,46.332c2.24,2.99 31.582,48.227 76.511,67.627c10.685,4.615 19.028,7.371 25.533,9.434c10.728,3.41 20.492,2.929 28.209,1.775c8.605,-1.285 26.499,-10.833 30.231,-21.295c3.732,-10.464 3.732,-19.431 2.612,-21.298c-1.119,-1.869 -4.105,-2.99 -8.583,-5.232Z" />
+            </svg>
+        </a>
+    </li>
+    <li>
+        <a target="_blank" rel="noopener noreferrer" aria-label="share Diffusion for sketch-guided trajectory simulation on telegram"
+            href="https://telegram.me/share/url?text=Diffusion%20for%20sketch-guided%20trajectory%20simulation&amp;url=https%3a%2f%2fwezteoh.github.io%2fposts%2fdiffusion-for-sketch-guided-trajectory-simulation%2f">
+            <svg version="1.1" xml:space="preserve" viewBox="2 2 28 28" height="30px" width="30px" fill="currentColor">
+                <path
+                    d="M26.49,29.86H5.5a3.37,3.37,0,0,1-2.47-1,3.35,3.35,0,0,1-1-2.47V5.48A3.36,3.36,0,0,1,3,3,3.37,3.37,0,0,1,5.5,2h21A3.38,3.38,0,0,1,29,3a3.36,3.36,0,0,1,1,2.46V26.37a3.35,3.35,0,0,1-1,2.47A3.38,3.38,0,0,1,26.49,29.86Zm-5.38-6.71a.79.79,0,0,0,.85-.66L24.73,9.24a.55.55,0,0,0-.18-.46.62.62,0,0,0-.41-.17q-.08,0-16.53,6.11a.59.59,0,0,0-.41.59.57.57,0,0,0,.43.52l4,1.24,1.61,4.83a.62.62,0,0,0,.63.43.56.56,0,0,0,.4-.17L16.54,20l4.09,3A.9.9,0,0,0,21.11,23.15ZM13.8,20.71l-1.21-4q8.72-5.55,8.78-5.55c.15,0,.23,0,.23.16a.18.18,0,0,1,0,.06s-2.51,2.3-7.52,6.8Z" />
+            </svg>
+        </a>
+    </li>
+    <li>
+        <a target="_blank" rel="noopener noreferrer" aria-label="share Diffusion for sketch-guided trajectory simulation on ycombinator"
+            href="https://news.ycombinator.com/submitlink?t=Diffusion%20for%20sketch-guided%20trajectory%20simulation&u=https%3a%2f%2fwezteoh.github.io%2fposts%2fdiffusion-for-sketch-guided-trajectory-simulation%2f">
+            <svg version="1.1" xml:space="preserve" width="30px" height="30px" viewBox="0 0 512 512" fill="currentColor"
+                xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape">
+                <path
+                    d="M449.446 0C483.971 0 512 28.03 512 62.554L512 449.446C512 483.97 483.97 512 449.446 512L62.554 512C28.03 512 0 483.97 0 449.446L0 62.554C0 28.03 28.029 0 62.554 0L449.446 0ZM183.8767 87.9921H121.8427L230.6673 292.4508V424.0079H281.3328V292.4508L390.1575 87.9921H328.1233L256 238.2489z" />
+            </svg>
+        </a>
+    </li>
+</ul>
+
+  </footer>
+  <div id="giscus-comments" class="giscus"></div>
+  <script src="https://giscus.app/client.js" data-repo="wezteoh/wezteoh.github.io" data-repo-id="R_kgDONSzICQ"
+    data-category="General" data-category-id="DIC_kwDONSzICc4Cs5Eo" data-mapping="pathname" data-strict="0"
+    data-reactions-enabled="0" data-emit-metadata="0" data-input-position="bottom" data-theme="light" data-lang="en"
+    crossorigin="anonymous" async>
+    </script>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="https://wezteoh.github.io/">Some days I delve</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu')
+    if (menu) {
+        menu.scrollLeft = localStorage.getItem("menu-scroll-position");
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        if (document.body.className.includes("dark")) {
+            document.body.classList.remove('dark');
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            document.body.classList.add('dark');
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

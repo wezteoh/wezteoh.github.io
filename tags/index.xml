@@ -11,13 +11,34 @@
     </image>
     <generator>Hugo -- 0.148.0</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 20 Apr 2026 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 28 Apr 2026 00:00:00 +0000</lastBuildDate>
     <atom:link href="https://wezteoh.github.io/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Controllable Generation</title>
+      <link>https://wezteoh.github.io/tags/controllable-generation/</link>
+      <pubDate>Tue, 28 Apr 2026 00:00:00 +0000</pubDate>
+      <guid>https://wezteoh.github.io/tags/controllable-generation/</guid>
+      <description></description>
+    </item>
     <item>
       <title>Diffusion</title>
       <link>https://wezteoh.github.io/tags/diffusion/</link>
-      <pubDate>Mon, 20 Apr 2026 00:00:00 +0000</pubDate>
+      <pubDate>Tue, 28 Apr 2026 00:00:00 +0000</pubDate>
       <guid>https://wezteoh.github.io/tags/diffusion/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Sports Analytics</title>
+      <link>https://wezteoh.github.io/tags/sports-analytics/</link>
+      <pubDate>Tue, 28 Apr 2026 00:00:00 +0000</pubDate>
+      <guid>https://wezteoh.github.io/tags/sports-analytics/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Trajectory Simulation</title>
+      <link>https://wezteoh.github.io/tags/trajectory-simulation/</link>
+      <pubDate>Tue, 28 Apr 2026 00:00:00 +0000</pubDate>
+      <guid>https://wezteoh.github.io/tags/trajectory-simulation/</guid>
       <description></description>
     </item>
     <item>
