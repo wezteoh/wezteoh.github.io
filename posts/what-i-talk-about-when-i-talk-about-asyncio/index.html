@@ -462,12 +462,12 @@ As an AI researcher, I spent most of my career focused on models and data. When 
 </span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">1</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">subgenerator</span><span class="p">():</span>
-</span></span><span class="line"><span class="cl">		<span class="n">a</span> <span class="o">=</span> <span class="n">subsubgenerator</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">		<span class="k">yield</span> <span class="s2">&#34;subgenerator yield point&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">a</span> <span class="o">=</span> <span class="n">subsubgenerator</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">yield</span> <span class="s2">&#34;subgenerator yield point&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="mi">1</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">generator</span><span class="p">():</span>
-</span></span><span class="line"><span class="cl">		<span class="n">a</span> <span class="o">=</span> <span class="n">subgenerator</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="n">a</span> <span class="o">=</span> <span class="n">subgenerator</span><span class="p">()</span>
 </span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="mi">1</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
@@ -482,7 +482,7 @@ As an AI researcher, I spent most of my career focused on models and data. When 
 </span></span><span class="line"><span class="cl"><span class="n">main</span><span class="p">()</span>
 </span></span></code></pre></div><p>The above will not work because when we call <code>subgenerator()</code> within the <code>generator</code> , it only returns you an iterator instance, which we then have call  <code>next</code> on to step through the yields. We would have to add a block like this within the generators:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">generator</span><span class="p">():</span>
-</span></span><span class="line"><span class="cl">		<span class="c1"># code to instantiate subgenerator, iterate and catch return value</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># code to instantiate subgenerator, iterate and catch return value</span>
 </span></span><span class="line"><span class="cl">    <span class="n">temp</span> <span class="o">=</span> <span class="n">subgenerator</span><span class="p">()</span>
 </span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
 </span></span><span class="line"><span class="cl">        <span class="k">try</span><span class="p">:</span>
@@ -530,8 +530,8 @@ As an AI researcher, I spent most of my career focused on models and data. When 
 </span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="n">g</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
 </span></span></code></pre></div><p>outputs:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="mi">1</span>
-</span></span><span class="line"><span class="cl"><span class="n">got</span> <span class="mi">2</span>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">1
+</span></span><span class="line"><span class="cl">got 2
 </span></span></code></pre></div><p>by nesting with <code>yield from</code> , you can <code>send</code> from the outermost to the innermost layer.</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">subgenerator</span><span class="p">():</span>
 </span></span><span class="line"><span class="cl">    <span class="n">x</span> <span class="o">=</span> <span class="k">yield</span> <span class="mi">1</span>
@@ -545,8 +545,8 @@ As an AI researcher, I spent most of my career focused on models and data. When 
 </span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="n">g</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
 </span></span></code></pre></div><p>outputs:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="mi">1</span>
-</span></span><span class="line"><span class="cl"><span class="n">got</span> <span class="mi">2</span>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">1
+</span></span><span class="line"><span class="cl">got 2
 </span></span></code></pre></div><p>when you do <code>g.send(None)</code> , it is equivalent to <code>next(g)</code> .</p>
 <p>In similar fashion, <code>throw</code> allows you to forward exception from the outermost to the innermost generator when they are chained by <code>yield from</code> .</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">subgenerator</span><span class="p">():</span>
@@ -565,9 +565,9 @@ As an AI researcher, I spent most of my career focused on models and data. When 
 </span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="n">g</span><span class="p">))</span>
 </span></span><span class="line"><span class="cl"><span class="n">g</span><span class="o">.</span><span class="n">throw</span><span class="p">(</span><span class="ne">Exception</span><span class="p">(</span><span class="s2">&#34;forwarded exception&#34;</span><span class="p">))</span>
 </span></span></code></pre></div><p>outputs:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="mi">1</span>
-</span></span><span class="line"><span class="cl"><span class="n">subgenerator</span> <span class="n">caught</span> <span class="n">exception</span>
-</span></span><span class="line"><span class="cl"><span class="n">forwarded</span> <span class="n">exception</span>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">1
+</span></span><span class="line"><span class="cl">subgenerator caught exception
+</span></span><span class="line"><span class="cl">forwarded exception
 </span></span></code></pre></div><p>In short <code>yield from</code> mechanism enables a bidirectional delegation when we nest the generators.</p>
 <h3 id="chaining-awaitables">Chaining awaitables<a hidden class="anchor" aria-hidden="true" href="#chaining-awaitables">#</a></h3>
 <p>Now we are ready to unpack what is within the <code>await</code> expression and how the propagation of <code>await</code> expression + <code>async def</code> function works.</p>
@@ -589,14 +589,14 @@ As an AI researcher, I spent most of my career focused on models and data. When 
 </span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="s2">&#34;qwen/qwen3-32b&#34;</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="k">async</span> <span class="k">def</span> <span class="nf">some_coroutine_func</span><span class="p">():</span>
-</span></span><span class="line"><span class="cl">		<span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">async_client</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">async_client</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
 </span></span><span class="line"><span class="cl">        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="n">messages</span><span class="o">=</span><span class="p">[{</span><span class="s2">&#34;role&#34;</span><span class="p">:</span> <span class="s2">&#34;user&#34;</span><span class="p">,</span> <span class="s2">&#34;content&#34;</span><span class="p">:</span> <span class="s2">&#34;tell me a joke&#34;</span><span class="p">}],</span>
 </span></span><span class="line"><span class="cl">    <span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="k">async</span> <span class="k">def</span> <span class="nf">parent_coroutine_func</span><span class="p">():</span>
-</span></span><span class="line"><span class="cl">		<span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">some_coroutine_func</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">some_coroutine_func</span><span class="p">()</span>
 </span></span></code></pre></div><p>In this case, the custom awaitables are hidden a few layers beneath the <code>async_client.chat.completions.create</code> which we do not touch directly. In the <code>some_coroutine_func</code> and <code>parent_coroutine_func</code> body, the code equivalents that are running under the hood are actually almost as follows:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># in some_coroutine_func</span>
 </span></span><span class="line"><span class="cl"><span class="n">_llm__it</span> <span class="o">=</span> <span class="n">async_client</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
@@ -630,62 +630,62 @@ As an AI researcher, I spent most of my career focused on models and data. When 
 </span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;****************&#34;</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">dis</span><span class="o">.</span><span class="n">dis</span><span class="p">(</span><span class="n">similar_parent_coroutine_func</span><span class="p">))</span>
 </span></span></code></pre></div><p>Outputs in python 3.13 below: The only difference is that with the default await implementation, there is a <code>GET_AWAITABLE</code> operation vs <code>GET_YIELD_FROM_ITER</code> in the alternative implementation.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">	<span class="m">10</span>           RETURN_GENERATOR
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">  10           RETURN_GENERATOR
 </span></span><span class="line"><span class="cl">               POP_TOP
-</span></span><span class="line"><span class="cl">       L1:     RESUME                   <span class="m">0</span>
+</span></span><span class="line"><span class="cl">       L1:     RESUME                   0
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  <span class="m">11</span>           LOAD_GLOBAL              <span class="m">1</span> <span class="o">(</span>some_coroutine_func + NULL<span class="o">)</span>
-</span></span><span class="line"><span class="cl">               CALL                     <span class="m">0</span>
-</span></span><span class="line"><span class="cl">               GET_AWAITABLE            <span class="m">0</span>
-</span></span><span class="line"><span class="cl">               LOAD_CONST               <span class="m">0</span> <span class="o">(</span>None<span class="o">)</span>
-</span></span><span class="line"><span class="cl">       L2:     SEND                     <span class="m">3</span> <span class="o">(</span>to L5<span class="o">)</span>
-</span></span><span class="line"><span class="cl">       L3:     YIELD_VALUE              <span class="m">1</span>
-</span></span><span class="line"><span class="cl">       L4:     RESUME                   <span class="m">3</span>
-</span></span><span class="line"><span class="cl">               JUMP_BACKWARD_NO_INTERRUPT <span class="m">5</span> <span class="o">(</span>to L2<span class="o">)</span>
+</span></span><span class="line"><span class="cl">  11           LOAD_GLOBAL              1 (some_coroutine_func + NULL)
+</span></span><span class="line"><span class="cl">               CALL                     0
+</span></span><span class="line"><span class="cl">               GET_AWAITABLE            0
+</span></span><span class="line"><span class="cl">               LOAD_CONST               0 (None)
+</span></span><span class="line"><span class="cl">       L2:     SEND                     3 (to L5)
+</span></span><span class="line"><span class="cl">       L3:     YIELD_VALUE              1
+</span></span><span class="line"><span class="cl">       L4:     RESUME                   3
+</span></span><span class="line"><span class="cl">               JUMP_BACKWARD_NO_INTERRUPT 5 (to L2)
 </span></span><span class="line"><span class="cl">       L5:     END_SEND
-</span></span><span class="line"><span class="cl">               STORE_FAST               <span class="m">0</span> <span class="o">(</span>x<span class="o">)</span>
+</span></span><span class="line"><span class="cl">               STORE_FAST               0 (x)
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  <span class="m">12</span>           LOAD_FAST                <span class="m">0</span> <span class="o">(</span>x<span class="o">)</span>
+</span></span><span class="line"><span class="cl">  12           LOAD_FAST                0 (x)
 </span></span><span class="line"><span class="cl">               RETURN_VALUE
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  <span class="m">11</span>   L6:     CLEANUP_THROW
-</span></span><span class="line"><span class="cl">       L7:     JUMP_BACKWARD_NO_INTERRUPT <span class="m">6</span> <span class="o">(</span>to L5<span class="o">)</span>
+</span></span><span class="line"><span class="cl">  11   L6:     CLEANUP_THROW
+</span></span><span class="line"><span class="cl">       L7:     JUMP_BACKWARD_NO_INTERRUPT 6 (to L5)
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  --   L8:     CALL_INTRINSIC_1         <span class="m">3</span> <span class="o">(</span>INTRINSIC_STOPITERATION_ERROR<span class="o">)</span>
-</span></span><span class="line"><span class="cl">               RERAISE                  <span class="m">1</span>
+</span></span><span class="line"><span class="cl">  --   L8:     CALL_INTRINSIC_1         3 (INTRINSIC_STOPITERATION_ERROR)
+</span></span><span class="line"><span class="cl">               RERAISE                  1
 </span></span><span class="line"><span class="cl">ExceptionTable:
-</span></span><span class="line"><span class="cl">  L1 to L3 -&gt; L8 <span class="o">[</span>0<span class="o">]</span> lasti
-</span></span><span class="line"><span class="cl">  L3 to L4 -&gt; L6 <span class="o">[</span>2<span class="o">]</span>
-</span></span><span class="line"><span class="cl">  L4 to L7 -&gt; L8 <span class="o">[</span>0<span class="o">]</span> lasti
+</span></span><span class="line"><span class="cl">  L1 to L3 -&gt; L8 [0] lasti
+</span></span><span class="line"><span class="cl">  L3 to L4 -&gt; L6 [2]
+</span></span><span class="line"><span class="cl">  L4 to L7 -&gt; L8 [0] lasti
 </span></span><span class="line"><span class="cl">None
 </span></span><span class="line"><span class="cl">****************
-</span></span><span class="line"><span class="cl">  <span class="m">15</span>           RETURN_GENERATOR
+</span></span><span class="line"><span class="cl">  15           RETURN_GENERATOR
 </span></span><span class="line"><span class="cl">               POP_TOP
-</span></span><span class="line"><span class="cl">       L1:     RESUME                   <span class="m">0</span>
+</span></span><span class="line"><span class="cl">       L1:     RESUME                   0
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  <span class="m">16</span>           LOAD_GLOBAL              <span class="m">1</span> <span class="o">(</span>some_coroutine_func + NULL<span class="o">)</span>
-</span></span><span class="line"><span class="cl">               CALL                     <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  16           LOAD_GLOBAL              1 (some_coroutine_func + NULL)
+</span></span><span class="line"><span class="cl">               CALL                     0
 </span></span><span class="line"><span class="cl">               GET_YIELD_FROM_ITER
-</span></span><span class="line"><span class="cl">               LOAD_CONST               <span class="m">0</span> <span class="o">(</span>None<span class="o">)</span>
-</span></span><span class="line"><span class="cl">       L2:     SEND                     <span class="m">3</span> <span class="o">(</span>to L5<span class="o">)</span>
-</span></span><span class="line"><span class="cl">       L3:     YIELD_VALUE              <span class="m">1</span>
-</span></span><span class="line"><span class="cl">       L4:     RESUME                   <span class="m">2</span>
-</span></span><span class="line"><span class="cl">               JUMP_BACKWARD_NO_INTERRUPT <span class="m">5</span> <span class="o">(</span>to L2<span class="o">)</span>
+</span></span><span class="line"><span class="cl">               LOAD_CONST               0 (None)
+</span></span><span class="line"><span class="cl">       L2:     SEND                     3 (to L5)
+</span></span><span class="line"><span class="cl">       L3:     YIELD_VALUE              1
+</span></span><span class="line"><span class="cl">       L4:     RESUME                   2
+</span></span><span class="line"><span class="cl">               JUMP_BACKWARD_NO_INTERRUPT 5 (to L2)
 </span></span><span class="line"><span class="cl">       L5:     END_SEND
-</span></span><span class="line"><span class="cl">               STORE_FAST               <span class="m">0</span> <span class="o">(</span>x<span class="o">)</span>
+</span></span><span class="line"><span class="cl">               STORE_FAST               0 (x)
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  <span class="m">17</span>           LOAD_FAST                <span class="m">0</span> <span class="o">(</span>x<span class="o">)</span>
+</span></span><span class="line"><span class="cl">  17           LOAD_FAST                0 (x)
 </span></span><span class="line"><span class="cl">               RETURN_VALUE
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  <span class="m">16</span>   L6:     CLEANUP_THROW
-</span></span><span class="line"><span class="cl">       L7:     JUMP_BACKWARD_NO_INTERRUPT <span class="m">6</span> <span class="o">(</span>to L5<span class="o">)</span>
+</span></span><span class="line"><span class="cl">  16   L6:     CLEANUP_THROW
+</span></span><span class="line"><span class="cl">       L7:     JUMP_BACKWARD_NO_INTERRUPT 6 (to L5)
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  --   L8:     CALL_INTRINSIC_1         <span class="m">3</span> <span class="o">(</span>INTRINSIC_STOPITERATION_ERROR<span class="o">)</span>
-</span></span><span class="line"><span class="cl">               RERAISE                  <span class="m">1</span>
+</span></span><span class="line"><span class="cl">  --   L8:     CALL_INTRINSIC_1         3 (INTRINSIC_STOPITERATION_ERROR)
+</span></span><span class="line"><span class="cl">               RERAISE                  1
 </span></span><span class="line"><span class="cl">ExceptionTable:
-</span></span><span class="line"><span class="cl">  L1 to L3 -&gt; L8 <span class="o">[</span>0<span class="o">]</span> lasti
-</span></span><span class="line"><span class="cl">  L3 to L4 -&gt; L6 <span class="o">[</span>2<span class="o">]</span>
-</span></span><span class="line"><span class="cl">  L4 to L7 -&gt; L8 <span class="o">[</span>0<span class="o">]</span> lasti
+</span></span><span class="line"><span class="cl">  L1 to L3 -&gt; L8 [0] lasti
+</span></span><span class="line"><span class="cl">  L3 to L4 -&gt; L6 [2]
+</span></span><span class="line"><span class="cl">  L4 to L7 -&gt; L8 [0] lasti
 </span></span><span class="line"><span class="cl">None
 </span></span></code></pre></div><hr>
 <h3 id="the-mastermind-scheduler-task-and-event-flag">The mastermind scheduler, task and event flag<a hidden class="anchor" aria-hidden="true" href="#the-mastermind-scheduler-task-and-event-flag">#</a></h3>
@@ -718,15 +718,15 @@ As an AI researcher, I spent most of my career focused on models and data. When 
 </span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="s2">&#34;qwen/qwen3-32b&#34;</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="k">async</span> <span class="k">def</span> <span class="nf">some_coroutine_func</span><span class="p">():</span>
-</span></span><span class="line"><span class="cl">		<span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">async_client</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">async_client</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
 </span></span><span class="line"><span class="cl">        <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="n">messages</span><span class="o">=</span><span class="p">[{</span><span class="s2">&#34;role&#34;</span><span class="p">:</span> <span class="s2">&#34;user&#34;</span><span class="p">,</span> <span class="s2">&#34;content&#34;</span><span class="p">:</span> <span class="s2">&#34;tell me a joke&#34;</span><span class="p">}],</span>
 </span></span><span class="line"><span class="cl">    <span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="k">async</span> <span class="k">def</span> <span class="nf">parent_coroutine_func</span><span class="p">():</span>
-</span></span><span class="line"><span class="cl">		<span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">some_coroutine_func</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">		
+</span></span><span class="line"><span class="cl">    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">some_coroutine_func</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">parent_coroutine_func</span><span class="p">())</span>
 </span></span></code></pre></div><p>Here we spell out what is happening, step-by-step. (You may want to read it while referring to the next diagram):</p>
 <ol>
