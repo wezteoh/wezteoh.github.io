@@ -72,5 +72,14 @@
 &lt;h2 id=&#34;why-this-matters&#34;&gt;Why this matters&lt;/h2&gt;
 &lt;p&gt;As an AI researcher, I spent most of my career focused on models and data. When it came to optimizing runtime, whether for data processing or model inference, I typically relied on batching or multiprocessing. I had very little exposure to asynchronous execution, and I didn’t think I needed it. That changed when I stepped into the world of &lt;a href=&#34;https://www.beren.io/2023-04-11-Scaffolded-LLMs-natural-language-computers&#34;&gt;scaffolded LLM systems&lt;/a&gt;.&lt;/p&gt;</description>
     </item>
+    <item>
+      <title>About me</title>
+      <link>https://wezteoh.github.io/about/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>https://wezteoh.github.io/about/</guid>
+      <description>&lt;p&gt;Hi, I am Wei Zhen. I have worked in AI research and engineering since 2018.&lt;/p&gt;
+&lt;p&gt;I am interested in how to make generative models learn and simulate real-world processes: trajectories and interactions, multimodal signals, and agentic workflows. I also care about methods that make these systems controllable and useful under practical deployment and operation constraints.&lt;/p&gt;
+&lt;p&gt;I started my career at &lt;a href=&#34;https://www.descript.com/lyrebird&#34;&gt;Lyrebird&lt;/a&gt; in Montreal (later acquired by &lt;a href=&#34;https://www.descript.com&#34;&gt;Descript&lt;/a&gt;), where I worked on neural speech synthesis, voice cloning, and AI speech editing. I moved to Singapore in 2021 and worked on eKYC computer vision problems at &lt;a href=&#34;https://advance.ai&#34;&gt;Advance AI&lt;/a&gt;. I led AI development for &lt;a href=&#34;https://advance.ai/advanguard-document-verification&#34;&gt;document verification technology&lt;/a&gt; used in production across Southeast Asia. I later joined Motion G, where I built LLM agents and systems for industrial motion-control engineering workflows and business processes.&lt;/p&gt;</description>
+    </item>
   </channel>
 </rss>
